@@ -1,0 +1,36 @@
+{
+  "segments": [
+    {
+      "end_time": 7.0,
+      "scene_description": "Animation of a lush green plant with a subtle glowing aura, hinting at its magical ability. Text overlay: 'Photosynthesis' appearing.",
+      "start_time": 0.0,
+      "text": "क्या आपने कभी सोचा है कि पेड़-पौधे अपना भोजन कैसे बनाते हैं? ये प्रकृति के वो जादूगर हैं जो बिना किसी रसोई के, सिर्फ सूरज की रोशनी से अपनी भूख मिटाते हैं।"
+    },
+    {
+      "end_time": 15.0,
+      "scene_description": "Sun shining brightly with rays. Water droplets rising from roots into a plant. CO2 molecules (labeled) floating from the air towards the plant leaves.",
+      "start_time": 7.0,
+      "text": "इस अद्भुत प्रक्रिया का नाम है 'प्रकाश संश्लेषण', और इसके लिए उन्हें चाहिए कुछ खास चीज़ें: सूरज की सुनहरी धूप, ज़मीन से पानी और हवा से कार्बन डाइऑक्साइड।"
+    },
+    {
+      "end_time": 23.0,
+      "scene_description": "Close-up on a leaf, zooming into chloroplasts within plant cells. Chlorophyll molecules (represented as green pigments) actively capturing light photons from the sun.",
+      "start_time": 15.0,
+      "text": "पौधों की पत्तियों में होता है एक हरा रंगद्रव्य, जिसे क्लोरोफिल कहते हैं। ये क्लोरोफिल एक जादुई रसोइये की तरह सूरज की ऊर्जा को पकड़ लेता है।"
+    },
+    {
+      "end_time": 31.0,
+      "scene_description": "Animated chemical reaction inside the chloroplast: Water (H2O) and Carbon Dioxide (CO2) molecules entering, light energy being absorbed, then transforming into Glucose (C6H12O6) molecules and Oxygen (O2) molecules.",
+      "start_time": 23.0,
+      "text": "फिर, इस ऊर्जा का उपयोग करके, पानी और कार्बन डाइऑक्साइड को मिलाकर, पौधे अपना मीठा भोजन, ग्लूकोज बनाते हैं, जो उनकी ऊर्जा का स्रोत है।"
+    },
+    {
+      "end_time": 38.0,
+      "scene_description": "Glucose molecules flowing through the plant for energy. Oxygen molecules (O2) leaving the leaf and spreading into the atmosphere. A human figure breathing the oxygen.",
+      "start_time": 31.0,
+      "text": "इस प्रक्रिया में ऑक्सीजन गैस भी बनती है, जिसे वे हवा में छोड़ देते हैं – वही ऑक्सीजन जिससे हम सांस लेते हैं और ये पूरी दुनिया को जीवित रखती है!"
+    }
+  ],
+  "topic": "How does photosynthesis work",
+  "total_duration": 38.0
+}

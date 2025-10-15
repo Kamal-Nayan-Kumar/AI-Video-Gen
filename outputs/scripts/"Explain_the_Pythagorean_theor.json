@@ -1,0 +1,42 @@
+{
+  "segments": [
+    {
+      "end_time": 6.0,
+      "scene_description": "An animated friendly character appears on screen, looking curious. A catchy title card 'పైథాగరస్ సిద్ధాంతం' (Pythagorean Theorem) slides in with a question mark.",
+      "start_time": 0.0,
+      "text": "హేయ్ దోస్తులారా! ఈరోజు మనం ఒక మ్యాథ్స్ సీక్రెట్ గురించి తెలుసుకుందాం. అదేంటి అంటే పైథాగరస్ సిద్ధాంతం! పేరు భయంకరంగా ఉన్నా, ఇది చాలా సింపుల్!"
+    },
+    {
+      "end_time": 12.5,
+      "scene_description": "A right-angled triangle is drawn on screen. The 90-degree angle is highlighted with a square symbol. The two shorter sides are labeled 'a' and 'b', and the longest side (hypotenuse) is labeled 'c'.",
+      "start_time": 6.0,
+      "text": "ఈ సిద్ధాంతం కేవలం రైట్ యాంగిల్ ట్రయాంగిల్స్, అంటే లంబకోణ త్రిభుజాలకు మాత్రమే. దీనికి ఒక 90 డిగ్రీల యాంగిల్ ఉంటుంది, గుర్తుంచుకోండి!"
+    },
+    {
+      "end_time": 20.0,
+      "scene_description": "The equation a² + b² = c² appears prominently on screen. The 'a²', 'b²' and 'c²' parts are animated with a slight 'pop' effect as they are spoken, emphasizing the 'squared' concept.",
+      "start_time": 12.5,
+      "text": "ఇప్పుడు అసలు మజా! దీని ఫార్ములా ఏంటంటే... a స్క్వేర్ ప్లస్ b స్క్వేర్ ఈజ్ ఈక్వల్ టు c స్క్వేర్! అంటే చిన్న సైడ్స్ ని స్క్వేర్ చేసి కలిపితే, పెద్ద సైడ్ స్క్వేర్ కి సమానం."
+    },
+    {
+      "end_time": 25.5,
+      "scene_description": "The right-angled triangle reappears. Squares are drawn outwards from each of its sides. The areas are implicitly represented by the squares' sizes. The square on side 'c' is noticeably larger.",
+      "start_time": 20.0,
+      "text": "దీన్ని మనం కళ్ళతో చూడొచ్చు కూడా! ఊహించుకోండి, ఆ రెండు చిన్న సైడ్స్ మీద రెండు చిన్న స్క్వేర్లు, పెద్ద సైడ్ మీద ఒక పెద్ద స్క్వేర్ ఉన్నాయి."
+    },
+    {
+      "end_time": 33.5,
+      "scene_description": "A classic visual proof animation: The two smaller squares (from sides 'a' and 'b') are dissected into smaller pieces. These pieces then slide and rearrange themselves perfectly to fill the area of the larger square (from side 'c'), demonstrating that a² + b² = c². The formula is shown again.",
+      "start_time": 25.5,
+      "text": "ఇప్పుడు చూడండి మ్యాజిక్! ఆ రెండు చిన్న స్క్వేర్ల ఏరియాని కలిపి, సరిగ్గా ఆ పెద్ద స్క్వేర్ లోకి పెట్టేయొచ్చు! అవును, అవి పర్ఫెక్ట్ గా సరిపోతాయి!"
+    },
+    {
+      "end_time": 43.5,
+      "scene_description": "The right-angled triangle with its formula a² + b² = c² is shown again. Quick animated examples appear: a builder using a right angle, then a map showing distances. The friendly character from the intro winks at the end.",
+      "start_time": 33.5,
+      "text": "సో, ఫ్రెండ్స్, పైథాగరస్ సిద్ధాంతం అంటే ఇదే! రెండు చిన్న సైడ్స్ స్క్వేర్లు కలిపితే, పెద్ద సైడ్ స్క్వేర్ వస్తుంది. ఇది గోడలు కట్టడానికి, మ్యాప్స్ వేయడానికి చాలా హెల్ప్ అవుతుంది. ఇంకేం, మీ త్రిభుజాలకు ఈ సీక్రెట్ చెప్పేయండి!"
+    }
+  ],
+  "topic": "Explain the Pythagorean theorem with visual proof",
+  "total_duration": 43.5
+}

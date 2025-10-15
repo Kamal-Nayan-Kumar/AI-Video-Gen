@@ -1,0 +1,42 @@
+{
+  "segments": [
+    {
+      "end_time": 5.0,
+      "scene_description": "A 3D animation of a hand pushing against a sturdy, textured wall. The wall should show a very subtle, almost imperceptible deformation or ripple to emphasize the force applied, but remain steadfast.",
+      "start_time": 0.0,
+      "text": "Have you ever wondered why, when you push against a wall, the wall doesn't just crumble under your force?"
+    },
+    {
+      "end_time": 10.5,
+      "scene_description": "The screen is initially dark, then the text 'Newton's Third Law of Motion' emerges from the center, growing and glowing slightly. Simultaneously, two abstract, glowing spheres briefly appear, move towards each other, collide, and bounce back, illustrating an interaction.",
+      "start_time": 5.0,
+      "text": "The secret lies in one of the universe's most fundamental dances: Newton's Third Law of Motion."
+    },
+    {
+      "end_time": 17.5,
+      "scene_description": "An abstract representation. A red arrow labeled 'Action' points to the right. As it appears, a blue arrow labeled 'Reaction' simultaneously appears, pointing to the left from the same point, equal in length and opposite in direction. The text 'For every action, there is an equal and opposite reaction' appears below.",
+      "start_time": 10.5,
+      "text": "It states that for every action, there is an equal and opposite reaction."
+    },
+    {
+      "end_time": 25.5,
+      "scene_description": "Two stylized hands appear and clasp together as if in a firm handshake. As they connect, a pair of small, opposing force vectors (arrows) animate on the point of contact between the hands, showing they are equal in magnitude and opposite in direction.",
+      "start_time": 17.5,
+      "text": "Imagine a cosmic handshake. When your hand reaches out, the other hand pushes back with the exact same strength. Neither hand 'wins' the push."
+    },
+    {
+      "end_time": 33.5,
+      "scene_description": "An animation of a rocket launching from a launchpad. Clearly show flames and exhaust gases expelling downwards. A large downward arrow labeled 'Force of Exhaust' should animate from the rocket's engines, and simultaneously, an equally large upward arrow labeled 'Force on Rocket' should animate on the rocket's body, propelling it upwards.",
+      "start_time": 25.5,
+      "text": "Think of a rocket launching into space. It expels hot gas downwards (the action), and in response, the rocket is propelled upwards (the reaction)."
+    },
+    {
+      "end_time": 41.5,
+      "scene_description": "A quick montage: First, a simple stick figure walking, with an arrow showing the foot pushing the ground backward and another arrow showing the ground pushing the foot forward. Then, a simplified solar system model with a planet orbiting a sun, with subtle arrows indicating gravitational pull between them. Finally, the text 'A continuous cosmic ballet of forces' appears elegantly.",
+      "start_time": 33.5,
+      "text": "From walking on the ground to planets orbiting stars, this elegant law underpins countless interactions, ensuring a continuous cosmic ballet of forces."
+    }
+  ],
+  "topic": "What is Newton's third law of motion",
+  "total_duration": 41.5
+}

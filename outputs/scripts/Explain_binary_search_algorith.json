@@ -1,0 +1,42 @@
+{
+  "segments": [
+    {
+      "end_time": 6.0,
+      "scene_description": "Display title: \"బైనరీ సెర్చ్ అల్గారిథమ్\". Show a visual representation of a data set, initially unsorted, then quickly becoming sorted to emphasize the prerequisite.",
+      "start_time": 0.0,
+      "text": "నమస్కారం! ఈ రోజు మనం బైనరీ సెర్చ్ అల్గారిథమ్ గురించి వివరంగా తెలుసుకుందాం. ఇది డేటా నిర్మాణాలలో ఒక ప్రాథమిక భావన."
+    },
+    {
+      "end_time": 12.5,
+      "scene_description": "A clear visual of a sorted array of numbers (e.g., [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]). Highlight \"sorted list\" concept.",
+      "start_time": 6.0,
+      "text": "బైనరీ సెర్చ్ అనేది క్రమబద్ధీకరించిన జాబితాలో (sorted list) ఒక నిర్దిష్ట మూలకాన్ని సమర్థవంతంగా కనుగొనడానికి ఉపయోగించే ఒక సెర్చ్ అల్గారిథమ్. దీనికి డేటా క్రమబద్ధీకరణ తప్పనిసరి."
+    },
+    {
+      "end_time": 19.5,
+      "scene_description": "The sorted array is shown. The 'middle' element is calculated and highlighted. An arrow points from the target value to the middle element, indicating a comparison.",
+      "start_time": 12.5,
+      "text": "ఈ అల్గారిథమ్ 'డివైడ్ అండ్ కాంకర్' (Divide and Conquer) సూత్రంపై పనిచేస్తుంది. మొదట, జాబితా మధ్య మూలకాన్ని కనుగొని, దానితో కావలసిన మూలకాన్ని పోలుస్తుంది."
+    },
+    {
+      "end_time": 27.0,
+      "scene_description": "Illustrate the comparison. If target < middle, the right half of the array visually fades or shrinks. If target > middle, the left half fades. Show the new 'active' sub-array.",
+      "start_time": 19.5,
+      "text": "కావలసిన మూలకం మధ్య దానికంటే చిన్నదైతే, జాబితా ఎడమ సగంలో శోధిస్తుంది; పెద్దదైతే, కుడి సగంలో శోధిస్తుంది. సమానమైతే, మూలకం కనుగొనబడినట్లు."
+    },
+    {
+      "end_time": 34.0,
+      "scene_description": "Repeat the 'middle element, compare, halve array' process on the smaller sub-array, showing the search space progressively shrinking until the target element is found and highlighted.",
+      "start_time": 27.0,
+      "text": "ఈ ప్రక్రియ, కావలసిన మూలకం దొరికే వరకు లేదా జాబితాలో శోధించడానికి మూలకాలు లేనంత వరకు పునరావృతమవుతుంది. ప్రతి అడుగులోనూ సెర్చ్ స్పేస్ సగానికి తగ్గుతుంది."
+    },
+    {
+      "end_time": 39.5,
+      "scene_description": "Display \"Time Complexity: O(log n)\". Briefly show a graph or animation comparing O(n) linear growth with O(log n) logarithmic growth, emphasizing efficiency.",
+      "start_time": 34.0,
+      "text": "బైనరీ సెర్చ్ యొక్క సమయ సంక్లిష్టత (Time Complexity) O(log n). ఇది పెద్ద డేటా సెట్‌లలో కూడా అత్యంత సమర్థవంతమైన సెర్చ్ పద్ధతి."
+    }
+  ],
+  "topic": "Explain binary search algorithm",
+  "total_duration": 39.5
+}

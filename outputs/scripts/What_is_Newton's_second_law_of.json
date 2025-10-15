@@ -1,0 +1,42 @@
+{
+  "segments": [
+    {
+      "end_time": 6.0,
+      "scene_description": "Animation shows a tiny pebble and a huge boulder side-by-side. A hand icon appears, attempting to push the pebble easily, then struggling with the boulder. Question mark appears over the boulder.",
+      "start_time": 0.0,
+      "text": "Imagine you're trying to move something. A tiny pebble, or perhaps, a giant boulder. What's the secret force that dictates how they respond to your push?"
+    },
+    {
+      "end_time": 12.0,
+      "scene_description": "Portrait of Isaac Newton appears briefly. Then, an object (e.g., a block) on a frictionless surface. A small arrow representing 'Force' pushes it, it moves slowly. A larger arrow (more force) pushes it, it speeds up significantly. A 'But there's a catch!' text appears.",
+      "start_time": 6.0,
+      "text": "Sir Isaac Newton pondered this very question, and his answer unveiled a fundamental truth: the more force you apply, the faster an object accelerates. But there's a catch!"
+    },
+    {
+      "end_time": 18.0,
+      "scene_description": "Two blocks of different sizes (one small, one large, clearly labeled 'Mass m1' and 'Mass m2' where m2 > m1). A consistent small force arrow pushes m1, it accelerates. The same small force pushes m2, it barely moves. Then, a much larger force pushes m2, and it accelerates at a similar rate to m1.",
+      "start_time": 12.0,
+      "text": "That 'catch' is its mass, its sheer 'stuff-ness.' A heavier object, with more mass, needs a much greater force to achieve the same acceleration."
+    },
+    {
+      "end_time": 26.0,
+      "scene_description": "The formula 'F = ma' appears prominently, with 'F' for Force, 'm' for Mass, and 'a' for Acceleration highlighted as the narrator speaks about each term. Arrows indicating F, m, and a, and text 'Net Force', 'Mass', 'Acceleration'.",
+      "start_time": 18.0,
+      "text": "Newton's Second Law elegantly combines these ideas into a powerful equation: Force equals Mass times Acceleration, or F = ma. It means the net force on an object is directly proportional to its mass and the acceleration it experiences."
+    },
+    {
+      "end_time": 32.0,
+      "scene_description": "Quick cuts: a foot kicking a soccer ball (ball accelerates), a rocket launching into space (force from engine, mass of rocket, acceleration), a person pushing a shopping cart (force, mass, acceleration). 'F=ma' subtly overlaid on each scene.",
+      "start_time": 26.0,
+      "text": "So, whether you're kicking a soccer ball, launching a rocket, or even just pushing your shopping cart, this simple formula is at play, governing every push, pull, and change in motion."
+    },
+    {
+      "end_time": 37.0,
+      "scene_description": "Abstract animation of lines and arrows (forces) interacting with spheres (masses), creating smooth, predictable movements. The universe as a clockwork mechanism. Text 'Predictable, Measurable Dance' appears.",
+      "start_time": 32.0,
+      "text": "It's the unseen architect of movement, revealing that the universe isn't just happening, but following a predictable, measurable dance of forces and masses."
+    }
+  ],
+  "topic": "Newton's Second Law of Motion",
+  "total_duration": 37.0
+}
