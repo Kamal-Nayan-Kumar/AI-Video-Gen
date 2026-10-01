@@ -1,461 +1,121 @@
-// // <<<<<<< HEAD
+import { useCallback, useEffect, useState } from "react";
 
-// // // import { useState } from "react";
-// // // import Home from "./components/Home";
-// // // import SlidePreview from "./components/SlidePreview";
-// // // import VideoPlayer from "./components/VideoPlayer";
+import Composer from "./components/Composer";
+import ProgressPanel from "./components/ProgressPanel";
+import Player from "./components/Player";
+import ModeBadge from "./components/ModeBadge";
+import { useCapabilities } from "./hooks/useCapabilities";
+import { useJobProgress } from "./hooks/useJobProgress";
+import { createGeneration, getJob } from "./utils/api";
 
-// // // function App() {
-// // //   const [generatedData, setGeneratedData] = useState(null);
-// // //   const [view, setView] = useState("home");
+export default function App() {
+  const health = useCapabilities();
+  const progress = useJobProgress();
 
-// // //   const handleGenerationComplete = (data) => {
-// // //     console.log("🎬 App.jsx - Generation complete data:", data);
-// // //     console.log("🎬 App.jsx - videoFilename:", data.videoFilename);
-// // //     console.log("🎬 App.jsx - videoPath:", data.videoPath);
-    
-// // //     setGeneratedData(data);
-// // //     setView("preview");
-// // //   };
+  const [jobId, setJobId] = useState(null);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-// // //   const handleBackToHome = () => {
-// // //     setView("home");
-// // //     setGeneratedData(null);
-// // //   };
+  const running = submitting || (progress.status === "running" && !result);
 
-// // //   const switchToPlayer = () => {
-// // //     setView("player");
-// // //   };
+  const submit = useCallback(
+    async (settings) => {
+      setError(null);
+      setResult(null);
+      setSubmitting(true);
+      setJobId(null);
 
-// // //   const switchToPreview = () => {
-// // //     setView("preview");
-// // //   };
+      try {
+        const { job_id } = await createGeneration(settings);
+        setJobId(job_id);
+      } catch (cause) {
+        setError(cause.message);
+        setSubmitting(false);
+        return;
+      }
 
-// // //   return (
-// // //     <div className="min-h-screen">
-// // //       {view === "home" && (
-// // //         <Home onGenerationComplete={handleGenerationComplete} />
-// // //       )}
+      // The SSE stream reports completion; fetch the payload once it lands.
+      setSubmitting(false);
+    },
+    []
+  );
 
-// // //       {view === "preview" && generatedData && (
-// // //         <div className="min-h-screen bg-gray-900">
-// // //           {/* Navigation Header - Only show when content is ready */}
-// // //           {generatedData.content?.slides?.length > 0 && (
-// // //             <div className="bg-gray-800 border-b border-gray-700 px-6 py-4 sticky top-0 z-50">
-// // //               <div className="max-w-7xl mx-auto flex items-center justify-between">
-// // //                 <button
-// // //                   onClick={handleBackToHome}
-// // //                   className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-// // //                 >
-// // //                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-// // //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-// // //                   </svg>
-// // //                   Back to Home
-// // //                 </button>
+  // Pull the finished job as soon as the stream reports it is done.
+  useEffect(() => {
+    if (!jobId || result || error) return;
+    if (progress.status !== "completed" && progress.status !== "error") return;
 
-// // //                 <div className="flex items-center gap-4">
-// // //                   <span className="text-gray-400 text-sm">
-// // //                     {generatedData.content?.slides?.length || 0} slides • {" "}
-// // //                     {Math.floor(generatedData.script?.total_duration / 60)}:{Math.floor(generatedData.script?.total_duration % 60).toString().padStart(2, '0')} duration
-// // //                   </span>
-// // //                   {generatedData.videoFilename && (
-// // //                     <button
-// // //                       onClick={switchToPlayer}
-// // //                       className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-// // //                     >
-// // //                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-// // //                         <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-// // //                       </svg>
-// // //                       Watch Video
-// // //                     </button>
-// // //                   )}
-// // //                 </div>
-// // //               </div>
-// // //             </div>
-// // //           )}
+    if (progress.status === "error") {
+      setError(progress.message.replace(/^Failed:\s*/, "") || "Generation failed");
+      setJobId(null);
+      return;
+    }
 
-// // //           <SlidePreview
-// // //             slides={generatedData.content?.slides || []}
-// // //             generationId={generatedData.generationId}
-// // //             videoFilename={generatedData.videoFilename}
-// // //             scriptData={generatedData.script}
-// // //           />
-// // //         </div>
-// // //       )}
+    let cancelled = false;
+    getJob(jobId)
+      .then((data) => {
+        if (!cancelled) setResult({ ...data, jobId });
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(cause.message);
+      })
+      .finally(() => {
+        if (!cancelled) setJobId(null);
+      });
 
-// // //       {view === "player" && generatedData && (
-// // //         <VideoPlayer
-// // //           videoPath={generatedData.videoPath}
-// // //           videoFilename={generatedData.videoFilename}
-// // //           content={generatedData.content}
-// // //           script={generatedData.script}
-// // //           onBack={switchToPreview}
-// // //         />
-// // //       )}
-// // //     </div>
-// // //   );
-// // // }
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, result, error, progress.status, progress.message]);
 
-// // // export default App;
-// // // src/App.jsx
-// // import { useState } from "react";
-// // import Home from "./components/Home";
-// // import SlidePreview from "./components/SlidePreview";
-// // import VideoPlayer from "./components/VideoPlayer";
-
-// // function App() {
-// //   const [generatedData, setGeneratedData] = useState(null);
-// //   const [view, setView] = useState("home");
-
-// //   const handleGenerationComplete = (data) => {
-// //     console.log("🎬 App.jsx - Generation complete data:", data);
-// //     console.log("🎬 App.jsx - videoFilename:", data.videoFilename);
-// //     console.log("🎬 App.jsx - videoPath:", data.videoPath);
-    
-// //     setGeneratedData(data);
-// //     setView("preview");
-// //   };
-
-// //   const handleBackToHome = () => {
-// //     setView("home");
-// //     setGeneratedData(null);
-// //   };
-
-// //   const switchToPlayer = () => {
-// //     setView("player");
-// //   };
-
-// //   const switchToPreview = () => {
-// //     setView("preview");
-// //   };
-
-// //   return (
-// //     <div className="min-h-screen">
-// //       {view === "home" && (
-// //         <Home onGenerationComplete={handleGenerationComplete} />
-// //       )}
-
-// //       {view === "preview" && generatedData && (
-// //         <div className="min-h-screen bg-gray-900">
-// //           {/* Navigation Header - Only show when content is ready */}
-// //           {generatedData.content?.slides?.length > 0 && (
-// //             <div className="bg-gray-800 border-b border-gray-700 px-6 py-4 sticky top-0 z-50">
-// //               <div className="max-w-7xl mx-auto flex items-center justify-between">
-// //                 <button
-// //                   onClick={handleBackToHome}
-// //                   className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
-// //                 >
-// //                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-// //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-// //                   </svg>
-// //                   Back to Home
-// //                 </button>
-
-// //                 <div className="flex items-center gap-4">
-// //                   <span className="text-gray-400 text-sm">
-// //                     {generatedData.content?.slides?.length || 0} slides • {" "}
-// //                     {Math.floor(generatedData.script?.total_duration / 60)}:{Math.floor(generatedData.script?.total_duration % 60).toString().padStart(2, '0')} duration
-// //                   </span>
-// //                   {generatedData.videoFilename && (
-// //                     <button
-// //                       onClick={switchToPlayer}
-// //                       className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-// //                     >
-// //                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-// //                         <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-// //                       </svg>
-// //                       Watch Video
-// //                     </button>
-// //                   )}
-// //                 </div>
-// //               </div>
-// //             </div>
-// //           )}
-
-// //           <SlidePreview
-// //             slides={generatedData.content?.slides || []}
-// //             generationId={generatedData.generationId}
-// //             videoFilename={generatedData.videoFilename}
-// //             scriptData={generatedData.script}
-// //           />
-// //         </div>
-// //       )}
-
-// //       {view === "player" && generatedData && (
-// //         <VideoPlayer
-// //           videoPath={generatedData.videoPath}
-// //           videoFilename={generatedData.videoFilename}
-// //           content={generatedData.content}
-// //           script={generatedData.script}
-// //           onBack={switchToPreview}
-// //         />
-// //       )}
-// //     </div>
-// //   );
-// // }
-
-// // export default App;
-// // src/App.jsx
-// import { useState } from "react";
-// import Home from "./components/Home";
-// import VideoPlayer from "./components/VideoPlayer";
-
-// function App() {
-//   const [generatedData, setGeneratedData] = useState(null);
-//   const [view, setView] = useState("home");
-
-//   const handleGenerationComplete = (data) => {
-//     console.log("🎬 App.jsx - Generation complete data:", data);
-//     console.log("🎬 App.jsx - videoFilename:", data.videoFilename);
-//     console.log("🎬 App.jsx - videoPath:", data.videoPath);
-    
-//     setGeneratedData(data);
-//     setView("player");
-//   };
-
-//   const handleBackToHome = () => {
-//     setView("home");
-//     setGeneratedData(null);
-//   };
-
-//   return (
-//     <div className="min-h-screen">
-//       {view === "home" && (
-//         <Home onGenerationComplete={handleGenerationComplete} />
-//       )}
-
-//       {view === "player" && generatedData && (
-//         <VideoPlayer
-//           videoPath={generatedData.videoPath}
-//           videoFilename={generatedData.videoFilename}
-//           content={generatedData.content}
-//           script={generatedData.script}
-//           onBack={handleBackToHome}
-//         />
-// // =======
-// // import { useState } from "react";
-// // import Home from "./components/Home";
-// // import SlideEditor from "./components/SlideEditor";
-// // import SlidePreview from "./components/SlidePreview";
-// // // import { exportToPPT } from "./utils/export";
-// // import { exportToPPT } from "./utils/pptExport";
-
-// // function App() {
-// //   const [slides, setSlides] = useState([]);
-// //   const [view, setView] = useState("home");
-
-// //   const handleSlidesReady = (generatedSlides) => {
-// //     setSlides(generatedSlides);
-// //     setView("editor");
-// //   };
-
-// //   const handleExport = async () => {
-// //   try {
-// //     await exportToPPT(slides);
-// //     // Optional: show success message
-// //   } catch (error) {
-// //     console.error("Export failed:", error);
-// //     // Optional: show error message
-// //   }
-// // };
-
-// //   return (
-// //     <div>
-// //       {view === "home" && <Home onSlidesReady={handleSlidesReady} />}
-// //       {view === "editor" && (
-// //         <div>
-// //           <div className="flex gap-4 p-4 bg-gray-800 sticky top-0 z-10">
-// //             <button
-// //               onClick={() => setView("home")}
-// //               className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-// //             >
-// //               ← Back to Home
-// //             </button>
-// //             <button
-// //               onClick={() => setView("preview")}
-// //               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-// //             >
-// //               Preview
-// //             </button>
-// //           </div>
-// //           <SlideEditor slides={slides} setSlides={setSlides} onExport={handleExport} />
-// //         </div>
-// //       )}
-// //       {view === "preview" && (
-// //         <div>
-// //           <div className="flex gap-4 p-4 bg-gray-800 sticky top-0 z-10">
-// //             <button
-// //               onClick={() => setView("editor")}
-// //               className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-// //             >
-// //               ← Back to Editor
-// //             </button>
-// //             <button
-// //               onClick={handleExport}
-// //               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-// //             >
-// //               Export to PPT
-// //             </button>
-// //           </div>
-// //           <SlidePreview slides={slides} />
-// //         </div>
-// // >>>>>>> 73529f5ab1bf7cdfe0e3f3b1627debd52ecd04fb
-// //       )}
-// //     </div>
-// //   );
-// // }
-
-// // export default App;
-
-// import { useState } from "react";
-// import Home from "./components/Home";
-// import VideoPlayer from "./components/VideoPlayer";
-// import SlideEditor from "./components/SlideEditor";
-// import SlidePreview from "./components/SlidePreview";
-// import { exportToPPT } from "./utils/pptExport";
-
-// function App() {
-//   const [generatedData, setGeneratedData] = useState(null);
-//   const [slides, setSlides] = useState([]);
-//   const [view, setView] = useState("home");
-
-//   const handleGenerationComplete = (data) => {
-//     console.log("🎬 App.jsx - Generation complete data:", data);
-//     console.log("🎬 App.jsx - videoFilename:", data.videoFilename);
-//     console.log("🎬 App.jsx - videoPath:", data.videoPath);
-
-//     setGeneratedData(data);
-//     setView("player");
-//   };
-
-//   const handleSlidesReady = (generatedSlides) => {
-//     setSlides(generatedSlides);
-//     setView("editor");
-//   };
-
-//   const handleBackToHome = () => {
-//     setView("home");
-//     setGeneratedData(null);
-//   };
-
-//   const handleExport = async () => {
-//     try {
-//       await exportToPPT(slides);
-//     } catch (error) {
-//       console.error("Export failed:", error);
-//     }
-//   };
-
-//   return (
-//     <div className="min-h-screen">
-//       {view === "home" && (
-//         <>
-//           <Home onGenerationComplete={handleGenerationComplete} />
-//           <Home onSlidesReady={handleSlidesReady} />
-//         </>
-//       )}
-
-//       {view === "player" && generatedData && (
-//         <VideoPlayer
-//           videoPath={generatedData.videoPath}
-//           videoFilename={generatedData.videoFilename}
-//           content={generatedData.content}
-//           script={generatedData.script}
-//           onBack={handleBackToHome}
-//         />
-//       )}
-
-//       {view === "editor" && (
-//         <div>
-//           <div className="flex gap-4 p-4 bg-gray-800 sticky top-0 z-10">
-//             <button
-//               onClick={() => setView("home")}
-//               className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-//             >
-//               ← Back to Home
-//             </button>
-//             <button
-//               onClick={() => setView("preview")}
-//               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-//             >
-//               Preview
-//             </button>
-//           </div>
-//           <SlideEditor slides={slides} setSlides={setSlides} onExport={handleExport} />
-//         </div>
-//       )}
-
-//       {view === "preview" && (
-//         <div>
-//           <div className="flex gap-4 p-4 bg-gray-800 sticky top-0 z-10">
-//             <button
-//               onClick={() => setView("editor")}
-//               className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-//             >
-//               ← Back to Editor
-//             </button>
-//             <button
-//               onClick={handleExport}
-//               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-//             >
-//               Export to PPT
-//             </button>
-//           </div>
-//           <SlidePreview slides={slides} />
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-// export default App;
-
-
-import { useState } from "react";
-import Home from "./components/Home";
-import VideoPlayer from "./components/VideoPlayer";
-
-
-function App() {
-  const [generatedData, setGeneratedData] = useState(null);
-  const [view, setView] = useState("home");
-
-
-  const handleGenerationComplete = (data) => {
-    console.log("🎬 App.jsx - Generation complete data:", data);
-    console.log("🎬 App.jsx - videoFilename:", data.videoFilename);
-    console.log("🎬 App.jsx - videoPath:", data.videoPath);
-    
-    setGeneratedData(data);
-    setView("player");
-  };
-
-
-  const handleBackToHome = () => {
-    setView("home");
-    setGeneratedData(null);
-  };
-
+  const reset = useCallback(() => {
+    setResult(null);
+    setError(null);
+    setJobId(null);
+  }, []);
 
   return (
-    <div className="min-h-screen">
-      {view === "home" && (
-        <Home onGenerationComplete={handleGenerationComplete} />
-      )}
+    <div className="shell">
+      <header className="shell__bar">
+        <div className="brand">
+          <span className="brand__mark" aria-hidden="true" />
+          <span className="brand__name">Deckframe</span>
+          <span className="brand__sub">topic to narrated video</span>
+        </div>
+        <div className="shell__bar-right">
+          <ModeBadge health={health} />
+          {result && (
+            <button className="btn btn--ghost" onClick={reset}>
+              New deck
+            </button>
+          )}
+        </div>
+      </header>
 
-
-      {view === "player" && generatedData && (
-        <VideoPlayer
-          videoPath={generatedData.videoPath}
-          videoFilename={generatedData.videoFilename}
-          content={generatedData.content}
-          script={generatedData.script}
-          onBack={handleBackToHome}
-        />
-      )}
+      <main className="shell__main">
+        {result ? (
+          <Player result={result} />
+        ) : (
+          <div className="workspace">
+            <div className="workspace__form">
+              <Composer onSubmit={submit} disabled={running} error={error} />
+            </div>
+            <div className="workspace__rail">
+              <ProgressPanel
+                running={running}
+                events={progress.events}
+                progress={progress.progress}
+                status={progress.status}
+                message={progress.message}
+                connected={progress.connected}
+                error={error}
+                hasRun={Boolean(jobId) || progress.events.length > 0}
+              />
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
-
-
-export default App;

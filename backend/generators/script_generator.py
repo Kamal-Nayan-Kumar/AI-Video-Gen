@@ -1,164 +1,200 @@
+"""Narration script generation.
+
+Mirrors ContentGenerator: Gemini when a key is present, a locally composed
+narration when not. Timestamps here are only estimates — `app.py` overwrites
+them with the true durations of the rendered audio.
+"""
+
 import json
-from typing import Dict, List
-import google.generativeai as genai
-from pydantic import BaseModel, Field
+import re
+from typing import Dict
+
 from config import Config
+from generators.llm_client import LLMClient
 
-genai.configure(api_key=Config.GEMINI_API_KEY)
+TONE_INSTRUCTIONS = {
+    "formal": "Use precise, formal academic language.",
+    "casual": "Use relaxed, conversational language a friend would use.",
+    "storytelling": "Use a narrative style that builds through examples.",
+    "enthusiastic": "Use energetic language that conveys genuine interest.",
+}
 
-class SlideScript(BaseModel):
-    slide_number: int = Field(description="Slide number")
-    start_time: float = Field(description="Start time in seconds from beginning of video")
-    end_time: float = Field(description="End time in seconds")
-    narration_text: str = Field(description="Voice narration script for this slide")
-
-class VideoScript(BaseModel):
-    topic: str
-    total_duration: float
-    language: str
-    slide_scripts: List[SlideScript]
 
 class ScriptGenerator:
-    """Generate voice narration scripts with timestamps for each slide"""
-    
+    """Write one narration passage per slide."""
+
     def __init__(self):
-        self.model = genai.GenerativeModel(
-            model_name=Config.GEMINI_MODEL,
-            generation_config={
-                "response_mime_type": "application/json"
-            }
+        self.llm = LLMClient()
+
+    @staticmethod
+    def _build_prompt(content_data: Dict, language: str, tone: str) -> str:
+        outline = "\n".join(
+            f"Slide {s['slide_number']}: {s['title']}\n"
+            f"  Content: {s['content_text']}\n"
+            f"  Duration: {s['duration']}s\n"
+            f"  Animation: {s.get('animation_description') or 'none'}\n"
+            f"  Image: {s.get('image_keyword') or 'none'}"
+            for s in content_data["slides"]
         )
-    
-    def generate_scripts(self, content_data: Dict, language: str = "english", tone: str = "formal") -> Dict:
-        """Generate narration script with timestamps for each slide"""
-        
-        tone_instructions = {
-            "formal": "Use formal, academic language. Be precise and technical.",
-            "casual": "Use casual, friendly language. Make it conversational and easy to understand.",
-            "storytelling": "Use narrative style, build engagement with stories and examples."
-        }
-        
-        slides_info = "\n".join([
-            f"Slide {slide['slide_number']}: {slide['title']}\n"
-            f"  Content: {slide['content_text']}\n"
-            f"  Duration: {slide['duration']}s\n"
-            f"  Has Animation: {slide['needs_animation']}\n"
-            f"  Animation Description: {slide.get('animation_description', 'N/A')}\n"
-            f"  Has Image: {slide['needs_image']}\n"
-            for slide in content_data['slides']
-        ])
-        
-        prompt = f"""Generate voice narration scripts for each slide in this presentation:
+        return f"""Write voice-over narration for each slide of this presentation.
 
 Topic: {content_data['topic']}
 Language: {language}
-Tone: {tone} - {tone_instructions.get(tone, '')}
+Tone: {tone} — {TONE_INSTRUCTIONS.get(tone, TONE_INSTRUCTIONS['formal'])}
 
-Slides:
-{slides_info}
+{outline}
 
-REQUIREMENTS:
-1. Create narration_text for each slide that:
-   - Explains the content clearly in {language}
-   - Matches the specified tone
-   - Is natural spoken language (not rushed, not overly verbose)
-   - Speaks at normal conversational pace (approximately 150 words per minute)
-   
-2. For slides WITH ANIMATIONS:
-   - Narration MUST describe what viewer sees in the animation
-   - Use phrases like "As you can see...", "Watch as...", "Notice how..."
-   - Explain step-by-step what's happening visually
-   - Example: "As you can see on screen, the triangle has sides a, b, and c. Watch as we draw squares on each side. Notice that the area of the two smaller squares equals the area of the larger square."
-   
-3. For slides with images:
-   - Reference the image naturally: "Looking at this image...", "This diagram shows..."
-   
-4. For text-only slides:
-   - Clear explanation without referencing visuals
-   - Focus on the concept itself
-   
-5. Timing guidance:
-   - Each slide's narration should feel complete, not rushed
-   - Aim for natural pacing - pauses between concepts
-   - Don't try to fit too much in short duration
-   - It's okay if actual speech is slightly longer/shorter than estimated duration
-   
-6. Set ESTIMATED timestamps (will be corrected based on actual audio):
-   - start_time: cumulative estimated time from video start
-   - end_time: start_time + estimated slide duration
-   - These are just estimates - actual timing will be based on generated audio
-1. Create narration_text for each slide that:
-   - Explains the content clearly in {language}
-   - Matches the specified tone
-   - Fits within the slide's duration
-   - Flows naturally when spoken aloud
-   
-2. For slides with animations (Has Animation: True):
-   - Narration MUST describe what's happening in the animation
-   - Explain the visual elements step by step
-   - Time the explanation to match the animation flow (5-10 seconds)
-   - Example: "As you can see on screen, the rocket expels gas downward..."
-   
-3. For slides with images (Has Image: True):
-   - Reference the image in narration
-   - Example: "Looking at this diagram, we can see..."
-   
-4. For text-only slides:
-   - Focus on explaining the concept clearly
-   - No need to reference visuals
-   
-5. Set accurate timestamps:
-   - start_time: cumulative time from video start
-   - end_time: start_time + slide duration
-   - Timestamps should be sequential and match slide durations
+RULES:
+- Write natural spoken prose at roughly 150 words per minute.
+- Slides with an animation must describe what the viewer is watching
+  ("As you can see...", "Watch as...", "Notice how...").
+- Slides with an image: the `Image` line holds the search keyword used to find
+  a real photograph. Refer to it as "this image" or "this photo" and describe
+  the subject. Never call it a diagram, schematic or chart, and never claim it
+  labels or annotates specific parts — you cannot see the image, so do not
+  invent what it depicts.
+- Text-only slides explain the concept directly, with no visual references.
+- Timestamps are estimates; they get replaced by real audio durations.
 
-6. Narration should:
-   - Introduce concepts clearly
-   - Explain animations/visuals as they appear
-   - Connect ideas between slides
-   - End with a brief conclusion or summary
-
-Example:
+Return JSON:
 {{
-  "slide_number": 1,
-  "start_time": 0.0,
-  "end_time": 5.0,
-  "narration_text": "Welcome! Today we'll explore Newton's Second Law of Motion."
-}}
-
-Generate complete narration scripts with timestamps now.
-
-Return a JSON object with this structure:
-{{
-  "topic": "topic name",
-  "total_duration": total_seconds,
-  "language": "language",
+  "topic": "...",
+  "language": "{language}",
+  "total_duration": 0.0,
   "slide_scripts": [
-    {{
-      "slide_number": 1,
-      "start_time": 0.0,
-      "end_time": 5.0,
-      "narration_text": "narration text"
-    }}
+    {{"slide_number": 1, "start_time": 0.0, "end_time": 6.0,
+      "narration_text": "..."}}
   ]
 }}"""
-        
-        response = self.model.generate_content(prompt)
-        # Clean the response text
-        text = response.text.strip()
-        if text.startswith('```json'):
-            text = text[7:]
-        if text.startswith('```'):
-            text = text[3:]
-        if text.endswith('```'):
-            text = text[:-3]
-        text = text.strip()
-        
-        script_data = json.loads(text)
-        
-        # Save script
-        script_path = Config.SCRIPTS_DIR / f"{content_data['topic'][:30].replace(' ', '_')}_script.json"
-        with open(script_path, 'w', encoding='utf-8') as f:
-            json.dump(script_data, f, indent=2, ensure_ascii=False)
-        
-        return script_data
+
+    @staticmethod
+    def _estimate_duration(text: str) -> float:
+        """Rough spoken length, used only until real audio is measured."""
+        words = len(text.split())
+        return max(3.0, round(words / 2.5, 1))  # 150 wpm
+
+    # Narration for a demo deck should stay tight: roughly six seconds a
+    # slide. These word budgets keep a five-slide deck near half a minute
+    # instead of padding out to a minute and a half.
+    OPEN_BUDGET = 16
+    BODY_BUDGET = 26
+    CLOSE_BUDGET = 22
+
+    @classmethod
+    def _trim(cls, text: str, budget: int) -> str:
+        """Clamp narration to a word budget on a sentence boundary."""
+        words = text.split()
+        if len(words) <= budget:
+            return text
+        kept = " ".join(words[:budget])
+        # Prefer ending on a full sentence where one fits inside the budget.
+        for stop in range(len(kept), max(0, len(kept) - 14), -1):
+            if kept[stop - 1] in ".!?":
+                return kept[:stop]
+        return kept.rstrip(",;:") + "."
+
+    def _demo_scripts(self, content_data: Dict, language: str, tone: str) -> Dict:
+        """Compose narration from the slide text itself."""
+        speakers = {
+            "english": "Welcome back",
+            "hindi": "Namaskar",
+            "kannada": "Namaskara",
+            "telugu": "Namaskaram",
+        }
+        opener = speakers.get(language, speakers["english"])
+
+        scripts = []
+        cursor = 0.0
+        slides = content_data["slides"]
+        for i, slide in enumerate(slides):
+            if i == 0:
+                text = self._trim(
+                    f"{opener}. In this video we look at "
+                    f"{content_data['topic']}. {slide['content_text']}",
+                    self.OPEN_BUDGET,
+                )
+            elif i == len(slides) - 1:
+                text = self._trim(
+                    f"{slide['content_text']} Thanks for watching.",
+                    self.CLOSE_BUDGET,
+                )
+            elif slide.get("needs_animation"):
+                text = self._trim(
+                    f"As you can see on screen, the diagram illustrates this "
+                    f"point. {slide['content_text']}",
+                    self.BODY_BUDGET,
+                )
+            elif slide.get("needs_image"):
+                text = self._trim(
+                    f"Looking at this image, the idea becomes concrete. "
+                    f"{slide['content_text']}",
+                    self.BODY_BUDGET,
+                )
+            else:
+                text = self._trim(slide["content_text"], self.BODY_BUDGET)
+
+            duration = self._estimate_duration(text)
+            scripts.append(
+                {
+                    "slide_number": slide["slide_number"],
+                    "start_time": round(cursor, 2),
+                    "end_time": round(cursor + duration, 2),
+                    "narration_text": text,
+                }
+            )
+            cursor += duration
+
+        return {
+            "topic": content_data["topic"],
+            "language": language,
+            "total_duration": round(cursor, 2),
+            "slide_scripts": scripts,
+        }
+
+    def generate_scripts(
+        self, content_data: Dict, language: str = "english", tone: str = "formal"
+    ) -> Dict:
+        if not self.llm.available:
+            data = self._demo_scripts(content_data, language, tone)
+        else:
+            data = self.llm.generate_json(
+                self._build_prompt(content_data, language, tone)
+            )
+
+        # Guarantee one narration per slide, in order.
+        expected = [s["slide_number"] for s in content_data["slides"]]
+        by_number = {
+            s.get("slide_number"): s for s in data.get("slide_scripts", [])
+        }
+        ordered = []
+        cursor = 0.0
+        for number in expected:
+            entry = by_number.get(number)
+            if entry is None:
+                slide = content_data["slides"][expected.index(number)]
+                entry = {
+                    "slide_number": number,
+                    "narration_text": slide.get("content_text", ""),
+                }
+            text = entry.get("narration_text") or ""
+            duration = self._estimate_duration(text)
+            ordered.append(
+                {
+                    "slide_number": number,
+                    "start_time": round(cursor, 2),
+                    "end_time": round(cursor + duration, 2),
+                    "narration_text": text,
+                }
+            )
+            cursor += duration
+
+        data["slide_scripts"] = ordered
+        data["total_duration"] = round(cursor, 2)
+        data.setdefault("topic", content_data["topic"])
+        data.setdefault("language", language)
+
+        safe = data["topic"][:30].replace(" ", "_").replace(":", "").replace("/", "_")
+        with open(Config.SCRIPTS_DIR / f"{safe}_script.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        return data

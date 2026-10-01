@@ -1,10 +1,19 @@
+# Core pipeline
 fastapi==0.115.0
-uvicorn==0.32.0
+uvicorn[standard]==0.32.0
 python-dotenv==1.0.1
 pydantic==2.9.2
-google-generativeai==0.8.3
-manim==0.18.1
-moviepy>=2.0.0
 requests==2.32.3
 python-multipart==0.0.12
 Pillow>=10.0.0
+numpy>=1.26
+
+# Video assembly
+moviepy>=2.0.0
+
+# Animation rendering. Needs cairo, pango and ffmpeg available on the system.
+manim==0.18.1
+
+# Optional: content and narration models. Only imported when a key is set,
+# so demo mode works without them.
+google-generativeai==0.8.3

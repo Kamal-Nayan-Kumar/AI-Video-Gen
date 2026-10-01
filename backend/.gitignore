@@ -1,17 +1,20 @@
-<<<<<<< HEAD
-backend/__pycache__/
-backend/generators/__pycache__/
-backend/utils/__pycache__/
-
-.env
-myenv/
-outputs/
-
-venv
-venv/
-=======
-venv/
-node_modules/
-.env
+# Python
 __pycache__/
->>>>>>> 73529f5ab1bf7cdfe0e3f3b1627debd52ecd04fb
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+myenv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Generated artefacts
+outputs/
+media/
+*.mp4
+*.wav
+*.pptx

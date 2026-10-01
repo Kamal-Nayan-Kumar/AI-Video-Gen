@@ -1,1 +1,349 @@
-@import "tailwindcss";
+/* ==========================================================================
+   Design tokens
+   A single neutral ramp plus one accent. Everything else is derived, which is
+   what keeps the interface from drifting into the usual purple-gradient look.
+   ========================================================================== */
+
+:root {
+  /* Neutral ramp — cool, slightly desaturated greys */
+  --bg-0: #0a0c10;
+  --bg-1: #0f1218;
+  --bg-2: #151920;
+  --bg-3: #1c212b;
+  --bg-4: #252b37;
+
+  --line-1: #1e2430;
+  --line-2: #2a3240;
+  --line-3: #3a4454;
+
+  --fg-1: #e8ebf0;
+  --fg-2: #a7b0c0;
+  --fg-3: #6f7a8c;
+  --fg-4: #4a5364;
+
+  /* Single accent: a calm cyan-blue that reads as "tool", not "AI startup" */
+  --accent: #4da3ff;
+  --accent-dim: #2f6fb3;
+  --accent-wash: rgba(77, 163, 255, 0.1);
+  --accent-line: rgba(77, 163, 255, 0.28);
+
+  --good: #3ecf8e;
+  --warn: #e2b341;
+  --bad: #f0616d;
+
+  /* Type scale — 1.2 ratio, small steps at the top */
+  --fs-xs: 11px;
+  --fs-sm: 12.5px;
+  --fs-base: 14px;
+  --fs-md: 16px;
+  --fs-lg: 20px;
+  --fs-xl: 28px;
+  --fs-2xl: 38px;
+
+  /* Spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  --r-sm: 6px;
+  --r-md: 9px;
+  --r-lg: 14px;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  --font: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Liberation Sans", system-ui, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", "Liberation Mono", ui-monospace, monospace;
+
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-0);
+  color: var(--fg-1);
+  font-family: var(--font);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Tabular figures keep counters from jittering as they tick. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--accent-line);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Scrollbars ------------------------------------------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-3) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 6px;
+  border: 3px solid var(--bg-0);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--line-3);
+}
+
+/* ==========================================================================
+   Primitives
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-4);
+  height: 36px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+  color: var(--fg-1);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.14s var(--ease), border-color 0.14s var(--ease),
+    color 0.14s var(--ease);
+}
+.btn:hover:not(:disabled) {
+  background: var(--bg-3);
+  border-color: var(--line-3);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06121f;
+  font-weight: 600;
+}
+.btn--primary:hover:not(:disabled) {
+  background: #6fb5ff;
+  border-color: #6fb5ff;
+}
+.btn--lg {
+  height: 44px;
+  padding: 0 var(--s-5);
+  font-size: var(--fs-base);
+}
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-2);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--bg-2);
+  color: var(--fg-1);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.input,
+.select {
+  width: 100%;
+  height: 38px;
+  padding: 0 var(--s-3);
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  color: var(--fg-1);
+  font: inherit;
+  font-size: var(--fs-sm);
+  transition: border-color 0.14s var(--ease), background 0.14s var(--ease);
+}
+.input:hover,
+.select:hover {
+  border-color: var(--line-3);
+}
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+  background: var(--bg-2);
+}
+.input::placeholder {
+  color: var(--fg-4);
+}
+.input--lg {
+  height: 46px;
+  font-size: var(--fs-md);
+}
+.select {
+  appearance: none;
+  padding-right: var(--s-6);
+  background-image: linear-gradient(45deg, transparent 50%, var(--fg-3) 50%),
+    linear-gradient(135deg, var(--fg-3) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 17px, calc(100% - 11px) 17px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.card {
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-lg);
+}
+
+/* Segmented control ------------------------------------------------------ */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+}
+.segmented__item {
+  padding: var(--s-2) var(--s-1);
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.14s var(--ease), color 0.14s var(--ease);
+}
+.segmented__item:hover:not(:disabled) {
+  color: var(--fg-1);
+}
+.segmented__item[aria-pressed="true"] {
+  background: var(--bg-3);
+  color: var(--fg-1);
+  font-weight: 500;
+}
+.segmented__item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px var(--s-2);
+  border-radius: 4px;
+  background: var(--bg-3);
+  color: var(--fg-2);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.tag--accent {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+.tag--good {
+  background: rgba(62, 207, 142, 0.12);
+  color: var(--good);
+}
+.tag--bad {
+  background: rgba(240, 97, 109, 0.12);
+  color: var(--bad);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.pulse {
+  animation: pulse 1.6s var(--ease) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

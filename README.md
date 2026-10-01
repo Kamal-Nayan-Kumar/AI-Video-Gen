@@ -1,218 +1,161 @@
-<div align="center">
+# AI Video Presentation Generator
 
-# AI-Powered Video Presentation Generator: A Multi-Modal Content Synthesis Framework
-
-**Transform any topic into an engaging video presentation with AI-powered content, narration, and visuals.**
-
-</div>
+Turns a topic into a narrated, illustrated video deck: outline, narration,
+slides, animations and a final MP4.
 
 ---
 
-## 👥 Team Members
+## Quick start
 
-<table>
-<tr>
-<td align="center"><b>Kamal Nayan Kumar</b><br/>Roll No: 23BDS026</td>
-<td align="center"><b>Vijaypal Singh Rathore</b><br/>Roll No: 23BDS067</td>
-</tr>
-<tr>
-<td align="center"><b>Rahul Patel</b><br/>Roll No: 23BDS047</td>
-<td align="center"><b>Om Pandey</b><br/>Roll No: 23BDS040</td>
-</tr>
-</table>
-
----
-
-
-
-## 📁 Folder Structure
-
-```
-AI-VIDEO-GEN/
-│
-├── backend/
-│   ├── generators/
-│   │   ├── content_generator.py
-│   │   ├── image_fetcher.py
-│   │   ├── manim_generator.py
-│   │   ├── script_generator.py
-│   │   └── voice_generator.py
-│   │
-│   ├── outputs/
-│   │   ├── audio/
-│   │   ├── images/
-│   │   ├── manim_code/
-│   │   ├── manim_output/
-│   │   ├── scripts/
-│   │   ├── slides/
-│   │   └── final/
-│   │
-│   ├── utils/
-│   │   ├── slide_renderer.py
-│   │   ├── video_composer.py
-│   │   └── video_renderer.py
-│   │
-│   ├── venv/
-│   ├── .env
-│   ├── .env.example
-│   ├── .gitignore
-│   ├── requirements.txt
-│   ├── MANIM_CODE_GUIDE.md
-│   ├── app.py (FastAPI entry)
-│   └── main.py
-│
-├── express/                 # Node backend (optional)
-│
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── assets/
-│   │   ├── components/
-│   │   │   ├── CanvasAnimation.jsx
-│   │   │   ├── Home.jsx
-│   │   │   ├── SlideEditor.jsx
-│   │   │   ├── SlidePreview.jsx
-│   │   │   ├── StepProgress.jsx
-│   │   │   └── VideoPlayer.jsx
-│   │   ├── hooks/
-│   │   │   └── useSSEProgress.jsx
-│   │   ├── styles/
-│   │   │   └── theme.css
-│   │   ├── utils/
-│   │   │   ├── api.js
-│   │   │   └── pptExport.js
-│   │   ├── App.jsx
-│   │   ├── App.css
-│   │   ├── index.css
-│   │   └── main.jsx
-│   │
-│   ├── package.json
-│   ├── vite.config.js
-│   └── .gitignore
-│
-├── .gitignore
-└── README.md
-```
-
----
-
-## 🚀 Installation (Windows Only)
-
-### 1️⃣ Clone the Repository
-
-```
-git clone https://github.com/Kamal-Nayan-Kumar/AI-Video-Gen
+```bash
+git clone https://github.com/Kamal-Nayan-Kumar/AI-Video-Gen.git
 cd AI-Video-Gen
+./setup.sh
+```
+
+`setup.sh` creates the Python environment, installs both halves, and checks
+that ffmpeg and a usable sans-serif font are present. Then run the two
+servers in separate terminals:
+
+```bash
+# Terminal 1 — API
+cd backend && .venv/bin/python app.py
+```
+
+```bash
+# Terminal 2 — UI
+cd frontend && npm run dev
+```
+
+Open **http://localhost:5173**.
+
+No API keys are needed. With an empty `backend/.env` the app runs in **demo
+mode**, where content, narration and imagery are produced locally, so the
+whole pipeline can be demonstrated offline. Drop a key into `.env` (see
+`backend/.env.example`) and that stage switches to the real provider
+automatically — nothing else changes.
+
+### Generating takes a minute
+
+Encoding a 1920×1080 deck is CPU-bound. A five-slide deck typically takes
+40–90 seconds depending on the machine. The progress rail updates live
+throughout.
+
+---
+
+## Requirements
+
+| Dependency | Why | Install (Arch / Debian) |
+|---|---|---|
+| Python 3.12 | Manim and MoviePy wheels | `uv` or `python3.12` |
+| Node 18+ | Vite frontend | `npm` |
+| ffmpeg | muxing audio, probing durations | `sudo pacman -S ffmpeg` |
+| cairo + pango | Manim text rendering | `sudo pacman -S cairo pango` |
+| A sans-serif font | slide text | `sudo pacman -S liberation-fonts` |
+
+LaTeX is **not** required: the scenes avoid `MathTex`/`Tex` and use Pango for
+text. If Gemini generates a scene that needs LaTeX, it is rejected and a local
+template is used instead.
+
+---
+
+## How it works
+
+```
+topic
+  │
+  ├─ content_generator  →  outline (title, body, per-slide visual decision)
+  ├─ script_generator   →  narration, one passage per slide
+  ├─ voice_generator    →  one audio file per slide; real durations measured
+  │                        script timestamps are rewritten from the audio
+  ├─ slide_renderer     →  1920×1080 slide images (text / text+image / panel)
+  ├─ video_renderer     →  Manim scenes rendered to MP4 (optional)
+  └─ video_composer     →  slides + narration → final MP4
+```
+
+`POST /api/generate` returns a job id immediately. Progress streams from
+`GET /api/progress/{job_id}` as server-sent events, and the finished payload
+is fetched from `GET /api/job/{job_id}`.
+
+Work runs on a worker thread rather than the event loop, so the progress
+stream stays responsive for the duration of the job.
+
+---
+
+## API
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/health` | status plus which providers are live |
+| `POST` | `/api/generate` | queue a job, returns `{job_id}` |
+| `GET` | `/api/progress/{job_id}` | SSE progress stream |
+| `GET` | `/api/job/{job_id}` | finished payload |
+| `GET` | `/api/video/{filename}` | stream the MP4 (supports range requests) |
+
+```bash
+curl -X POST localhost:8000/api/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"topic":"How a refrigerator works","num_slides":5,"language":"english","tone":"formal"}'
 ```
 
 ---
 
-## 🛠️ Backend Setup (FastAPI + Python)
+## Modes
 
-### 2️⃣ Create Virtual Environment
+`GET /health` reports which stages use a real provider:
 
-```
-cd backend
-python -m venv venv
-venv\Scripts\activate
-```
-
-### 3️⃣ Install Dependencies
-
-```
-pip install -r requirements.txt
+```json
+{
+  "status": "ok",
+  "capabilities": {
+    "mode": "live", "content": true, "provider": "groq",
+    "voice": true, "images": true
+  }
+}
 ```
 
-### 4️⃣ Install FFmpeg (Windows)
+| Stage | Live provider | Fallback |
+|---|---|---|
+| Outline & script | Groq (or Gemini) | deterministic local outline |
+| Narration | Sarvam AI | Google Translate TTS |
+| Imagery | Unsplash | generated abstract plate |
+| Animation | Groq scene code (or Gemini) | three local Manim templates |
 
-- Download from: https://ffmpeg.org/download.html  
-- Extract  
-- Add `ffmpeg/bin` directory to **System PATH**
+Set `DEMO_MODE=1` to force demo behaviour even when keys are present.
 
-Check installation:
+**Provider notes**
 
-```
-ffmpeg -version
-```
+- `GROQ_API_KEY` is preferred over `GEMINI_API_KEY`. Both work; the outline,
+  script and animation generators call whichever is set through one interface
+  (`generators/llm_client.py`).
+- Sarvam retired `bulbul:v2` and its speakers. Use `bulbul:v3` with a speaker
+  from `Config.SARVAM_SPEAKER_MAP` (`simran` for English, `ritu` for Hindi).
+- Unsplash returns a real photograph, not a diagram. The script generator is
+  told this explicitly so it does not narrate a photo as "the diagram shows".
 
 ---
 
-### 5️⃣ Install Manim
+## Layout
 
 ```
-pip install manim
+backend/
+  app.py                  FastAPI app, job registry, SSE
+  config.py               paths, keys, font resolution, mode detection
+  generators/
+    llm_client.py         one JSON/code interface over Groq and Gemini
+    content_generator.py  outline
+    script_generator.py   narration
+    voice_generator.py    Sarvam / TTS fallback
+    image_fetcher.py      Unsplash / generated plate
+    manim_generator.py    animation scene code
+  utils/                  slide renderer, video renderer, composer
+  outputs/                generated at runtime (gitignored)
+frontend/
+  src/App.jsx             layout and view switching
+  src/components/         Composer, ProgressPanel, Player, ModeBadge
+  src/hooks/              useJobProgress (SSE), useCapabilities
+  src/utils/api.js        typed backend client
 ```
 
----
-
-### 6️⃣ Add Environment Variables
-
-Create a `.env` inside `backend/`:
-
-```
-GEMINI_API_KEY=your_key
-SARVAM_API_KEY=your_key
-SARVAM_TTS_URL=https://api.sarvam.ai/text-to-speech
-SARVAM_MODEL=bulbul:v1
-UNSPLASH_ACCESS_KEY=your_key
-HOST=0.0.0.0
-PORT=8000
-```
-
----
-
-### 7️⃣ Start Backend
-
-```
-python app.py
-```
-
----
-
-## 💻 Frontend Setup (React + Vite)
-
-```
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend runs at:
-
-```
-http://localhost:5173
-```
-
----
-## ✨ Features
-
-- 🤖 **AI-Powered Content Generation** using Gemini
-- 🎤 **Multi-Language Voice Generation** via Sarvam AI  
-- 🎨 **Smart Visuals** using Unsplash or Manim animations  
-- 🎞️ Professional video output using **FFmpeg**
-- 📊 **Timeline + Slide Navigation**
-- 🎯 Each slide is **text OR image OR animation**
-- 📥 Export final MP4 video
-
----
-
-## 🧠 How to Use
-
-1. Open frontend in browser  
-2. Enter:
-   - Topic  
-   - No. of slides  
-   - Language  
-   - Tone  
-3. Click **Generate**
-4. Wait while:
-   - Content is created  
-   - Audio is generated  
-   - Images/Animation generated  
-   - Video composed  
-5. Watch and download the final MP4
-
----
-
-
-
+The Vite dev server proxies `/api` and `/health` to port 8000 so the browser
+sees a single origin — necessary for `EventSource`, which cannot set headers.

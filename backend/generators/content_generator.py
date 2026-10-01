@@ -1,257 +1,205 @@
-# import json
-# from typing import Dict, List
-# import google.generativeai as genai
-# from pydantic import BaseModel, Field
-# from config import Config
+"""Slide content generation.
 
-# genai.configure(api_key=Config.GEMINI_API_KEY)
-
-# class SlideContent(BaseModel):
-#     slide_number: int = Field(description="Slide number starting from 1")
-#     title: str = Field(description="Slide title")
-#     content_text: str = Field(description="Main content text for the slide")
-#     needs_image: bool = Field(description="Whether this slide needs a relevant image")
-#     image_keyword: str = Field(description="Keyword for image search if needs_image is True")
-#     needs_animation: bool = Field(description="Whether this slide needs a manim animation/video")
-#     animation_description: str = Field(description="Description of what animation is needed")
-#     duration: float = Field(description="How long this slide should be displayed in seconds")
-
-# class PresentationContent(BaseModel):
-#     topic: str
-#     total_slides: int
-#     slides: List[SlideContent]
-
-# class ContentGenerator:
-#     """Generate structured PPT content from user prompt"""
-    
-#     def __init__(self):
-#         self.model = genai.GenerativeModel(
-#             model_name=Config.GEMINI_MODEL,
-#             generation_config={
-#                 "response_mime_type": "application/json"
-#             }
-#         )
-    
-#     def generate_content(self, topic: str, num_slides: int = 5) -> Dict:
-#         """Generate presentation content structure"""
-        
-#         prompt = f"""Generate a comprehensive educational presentation about: "{topic}"
-
-# Create {num_slides} slides with the following structure:
-
-# REQUIREMENTS:
-# 1. First slide should be a title slide introducing the topic
-# 2. Subsequent slides should explain the concept step by step
-# 3. For each slide, determine:
-#    - Whether it needs a relevant image (set needs_image=true and provide image_keyword)
-#    - Whether it needs a manim animation/video (set needs_animation=true and describe what to animate)
-#    - Duration: Estimate speaking time for narration (4-10 seconds per slide)
-#    - NOTE: Most slides should be text-only (needs_image=false, needs_animation=false)
-
-# 4. **ANIMATIONS - Use VERY SPARINGLY** (Maximum 1-2 animations per presentation):
-#    - ONLY use animations when absolutely necessary to understand the concept
-#    - Good use cases:
-#      * Pythagorean theorem proof (showing triangle, squares, areas)
-#      * Vector addition (showing arrows combining)
-#      * Circular motion (showing velocity, acceleration vectors)
-#      * Graph transformations (showing function changes)
-#    - When creating animation_description, be VERY SPECIFIC:
-#      * Describe exact shapes, movements, transformations needed
-#      * Example: "Create right triangle with sides a=3, b=4, c=5. Show squares on each side. Animate squares forming, then show area calculations: a²+b²=c²"
-#    - BAD animation requests: Generic concepts that can be explained with text
-#    - Set needs_animation=false unless the concept is IMPOSSIBLE to understand without animation
-
-# 5. Use images for:
-#    - Historical figures or famous people
-#    - Real-world objects or places
-#    - Static diagrams that support understanding
-#    - Background context or examples
-
-# 6. Use text-only slides (MOST COMMON - 70-80% of slides) for:
-#    - Definitions and explanations
-#    - Lists of concepts or steps
-#    - Summary slides
-#    - Theoretical concepts
-#    - General information
-#    - Anything that can be explained with words alone
-
-# 7. Content should be educational, clear, and engaging
-# 8. Each slide's content_text should be concise but informative (2-4 sentences max)
-# 9. **IMPORTANT**: Prioritize text + voice. Only add visuals when truly beneficial.
-
-# Example slide structure:
-# {{
-#   "slide_number": 2,
-#   "title": "What is Force?",
-#   "content_text": "Force is a push or pull that can change an object's motion. It is measured in Newtons (N).",
-#   "needs_image": true,
-#   "image_keyword": "force physics illustration",
-#   "needs_animation": true,
-#   "animation_description": "Show a box being pushed with force arrow, demonstrating acceleration",
-#   "duration": 6.0
-# }}
-
-# Generate complete presentation content now.
-
-# Return a JSON object with this exact structure:
-# {{
-#   "topic": "topic name",
-#   "total_slides": number,
-#   "slides": [
-#     {{
-#       "slide_number": 1,
-#       "title": "slide title",
-#       "content_text": "content description",
-#       "needs_image": true/false,
-#       "image_keyword": "search keyword",
-#       "needs_animation": true/false,
-#       "animation_description": "what to animate",
-#       "duration": 5.0
-#     }}
-#   ]
-# }}"""
-        
-#         response = self.model.generate_content(prompt)
-#         # Clean the response text to get valid JSON
-#         text = response.text.strip()
-#         if text.startswith('```json'):
-#             text = text[7:]
-#         if text.startswith('```'):
-#             text = text[3:]
-#         if text.endswith('```'):
-#             text = text[:-3]
-#         text = text.strip()
-        
-#         content_data = json.loads(text)
-        
-#         # Save content structure
-#         content_path = Config.SLIDES_DIR / f"{topic[:30].replace(' ', '_')}_content.json"
-#         with open(content_path, 'w', encoding='utf-8') as f:
-#             json.dump(content_data, f, indent=2, ensure_ascii=False)
-        
-#         return content_data
+In `live` mode the outline comes from Gemini. In `demo` mode no model is
+available, so we derive a structured outline locally: a title slide, an
+overview, several concept slides built from the topic and its own key terms,
+and a closing summary. The shape of the data is identical either way, so the
+rest of the pipeline is unaware of which one ran.
+"""
 
 import json
-from typing import Dict, List
-import google.generativeai as genai
-from pydantic import BaseModel, Field, model_validator
+import re
+from typing import Dict
+
 from config import Config
+from generators.llm_client import LLMClient
 
-genai.configure(api_key=Config.GEMINI_API_KEY)
 
-class SlideContent(BaseModel):
-    slide_number: int = Field(description="Slide number starting from 1")
-    title: str = Field(description="Slide title")
-    content_text: str = Field(description="Main content text for the slide")
-    needs_image: bool = Field(description="Whether this slide needs a relevant image")
-    image_keyword: str = Field(default="", description="Keyword for image search if needs_image is True")
-    needs_animation: bool = Field(description="Whether this slide needs a manim animation/video")
-    animation_description: str = Field(default="", description="Description of what animation is needed")
-    duration: float = Field(description="How long this slide should be displayed in seconds")
-    
-    @model_validator(mode='after')
-    def validate_mutually_exclusive(self):
-        if self.needs_animation and self.needs_image:
-            raise ValueError(f"Slide {self.slide_number}: Cannot have both animation and image.")
-        return self
+def _keywords(topic: str) -> list[str]:
+    """Split a topic into candidate sub-topics.
 
-class PresentationContent(BaseModel):
-    topic: str
-    total_slides: int
-    slides: List[SlideContent]
+    "Photosynthesis in plants: how leaves make food" -> ["photosynthesis",
+    "how leaves make food"]. Commas, colons and conjunctions all act as
+    separators, which gives us a natural slide structure for free.
+    """
+    cleaned = re.sub(r"\s+", " ", topic).strip()
+    parts = re.split(r"[,:/]| - |\band\b|\bof\b|\bin\b", cleaned, flags=re.IGNORECASE)
+    parts = [p.strip(" ?.!") for p in parts if len(p.strip()) > 2]
+    return parts or [cleaned or "the topic"]
+
 
 class ContentGenerator:
-    def __init__(self):
-        self.model = genai.GenerativeModel(
-            model_name=Config.GEMINI_MODEL,
-            generation_config={"response_mime_type": "application/json"}
-        )
-    
-    def generate_content(self, topic: str, num_slides: int = 5) -> Dict:
-        # Create the prompt using multiline string
-        prompt = """Generate educational presentation about: """ + topic + """
+    """Produce the structured slide outline for a topic."""
 
-Create """ + str(num_slides) + """ slides.
+    def __init__(self):
+        self.llm = LLMClient()
+
+    # -- prompt ---------------------------------------------------------
+    @staticmethod
+    def _build_prompt(topic: str, num_slides: int) -> str:
+        return f"""Generate educational presentation content about: "{topic}"
+
+Create {num_slides} slides.
 
 RULES:
-- Each slide must have EITHER animation OR image, NEVER BOTH
-- Most slides should be text-only (needs_image=false, needs_animation=false)
-- Use images sparingly for people, places, objects (needs_image=true, needs_animation=false)
-- Use animations very rarely for motion concepts (needs_animation=true, needs_image=false)
+- Slide 1 must be an introductory title slide.
+- Exactly one of needs_image / needs_animation may be true per slide.
+- Keep 70-80% of slides text-only (both flags false).
+- Use images for concrete subjects: people, places, objects.
+- Use animations sparingly, only for motion or geometric concepts.
+- content_text must be 2-4 concise sentences.
+- duration is an estimated speaking length in seconds (5-10).
 
-Return JSON with this structure:
-{
-  "topic": "topic name",
-  "total_slides": """ + str(num_slides) + """,
+Return JSON:
+{{
+  "topic": "...",
+  "total_slides": {num_slides},
   "slides": [
-    {
+    {{
       "slide_number": 1,
-      "title": "Introduction",
-      "content_text": "Overview of the topic",
+      "title": "...",
+      "content_text": "...",
       "needs_image": false,
       "image_keyword": "",
       "needs_animation": false,
       "animation_description": "",
       "duration": 6.0
-    }
+    }}
   ]
-}"""
-        
-        try:
-            response = self.model.generate_content(prompt)
-            text = response.text.strip()
-            
-            # Clean response - remove any markdown
-            text = text.replace('json', '').replace('`', '').strip()
-            
-            # Parse JSON
-            content_data = json.loads(text)
-            
-            # Validate and fix structure
-            if not isinstance(content_data, dict):
-                raise ValueError(f"Expected dict, got {type(content_data)}")
-            
-            if 'slides' not in content_data:
-                raise ValueError("Missing slides in response")
-            
-            if not isinstance(content_data['slides'], list):
-                raise ValueError("Slides must be a list")
-            
-            # Add missing fields
-            if 'topic' not in content_data:
-                content_data['topic'] = topic
-            if 'total_slides' not in content_data:
-                content_data['total_slides'] = len(content_data['slides'])
-            
-            # Fix mutual exclusivity
-            for slide in content_data['slides']:
-                if slide.get('needs_animation') and slide.get('needs_image'):
-                    if slide.get('animation_description'):
-                        slide['needs_image'] = False
-                        slide['image_keyword'] = ""
-                    else:
-                        slide['needs_animation'] = False
-                        slide['animation_description'] = ""
-            
-            # Save content
-            topic_safe = topic[:30].replace(' ', '_').replace(':', '').replace('/', '_')
-            content_path = Config.SLIDES_DIR / f"{topic_safe}_content.json"
-            with open(content_path, 'w', encoding='utf-8') as f:
-                json.dump(content_data, f, indent=2, ensure_ascii=False)
-            
-            # Statistics
-            total = len(content_data['slides'])
-            text_only = sum(1 for s in content_data['slides'] 
-                           if not s.get('needs_image') and not s.get('needs_animation'))
-            with_image = sum(1 for s in content_data['slides'] if s.get('needs_image'))
-            with_animation = sum(1 for s in content_data['slides'] if s.get('needs_animation'))
-            
-            print(f"\nSlide breakdown: Text={text_only} Image={with_image} Animation={with_animation}")
-            
-            return content_data
-            
-        except Exception as e:
-            print(f"Content generation error: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
+}}"""
+
+    # -- demo fallback ---------------------------------------------------
+    @staticmethod
+    def _demo_content(topic: str, num_slides: int) -> Dict:
+        """Build a deterministic, well-formed outline without a model."""
+        parts = _keywords(topic)
+        subject = parts[0]
+        slides = []
+
+        def add(title: str, body: str, **kw):
+            slides.append(
+                {
+                    "slide_number": len(slides) + 1,
+                    "title": title,
+                    "content_text": body,
+                    "needs_image": kw.get("needs_image", False),
+                    "image_keyword": kw.get("image_keyword", ""),
+                    "needs_animation": kw.get("needs_animation", False),
+                    "animation_description": kw.get("animation_description", ""),
+                    "duration": kw.get("duration", 7.0),
+                }
+            )
+
+        add(
+            subject[:1].upper() + subject[1:],
+            f"A short introduction to {topic}. This deck walks through the key "
+            f"ideas, why they matter, and how they fit together.",
+            needs_image=True,
+            image_keyword=subject,
+            duration=6.0,
+        )
+
+        # Body slides drawn from the topic's own sub-phrases where possible,
+        # padded with generic framing so any topic yields a full deck.
+        focus = parts[1:] or [f"the core idea behind {subject}"]
+        fillers = [
+            ("How it works", "Breaking the process into its distinct stages and "
+             "looking at what happens at each one."),
+            ("Why it matters", "The practical significance, and the situations "
+             "where understanding this changes the outcome."),
+            ("Common misconceptions", "A few points that are often stated "
+             "incorrectly, and what the evidence actually supports."),
+            ("Key terms", "The vocabulary you need to follow the rest of the "
+             "discussion without further explanation."),
+            ("In practice", "A worked example that grounds the idea in "
+             "something concrete and familiar."),
+            ("Limitations", "Where this idea stops applying, and what is still "
+             "open to debate."),
+            ("Looking ahead", "How this connects to the surrounding field and "
+             "where research is heading."),
+        ]
+
+        for i in range(num_slides - 2):
+            if i < len(focus):
+                piece = focus[i]
+                add(
+                    piece[:1].upper() + piece[1:],
+                    f"A closer look at {piece}. This section covers what it "
+                    f"involves, and the reasoning behind the common approach.",
+                    duration=7.0,
+                )
+            else:
+                title, body = fillers[(i - len(focus)) % len(fillers)]
+                add(title, f"{body} For {topic}, this is where the detail "
+                    "matters most.", duration=6.0)
+
+        add(
+            "Summary",
+            f"The key points of {topic}, gathered into one place. Each idea "
+            f"covered maps back to a specific stage or principle discussed above.",
+            duration=6.0,
+        )
+
+        return {"topic": topic, "total_slides": len(slides), "slides": slides}
+
+    # -- normalisation ---------------------------------------------------
+    @staticmethod
+    def _normalise(data: Dict, topic: str) -> Dict:
+        """Repair a model response so downstream code can rely on its shape."""
+        if not isinstance(data, dict) or not isinstance(data.get("slides"), list):
+            raise ValueError("Model response did not contain a slides list")
+        if not data["slides"]:
+            raise ValueError("Model returned an empty slide list")
+
+        data.setdefault("topic", topic)
+        data["total_slides"] = len(data["slides"])
+
+        for i, slide in enumerate(data["slides"], start=1):
+            slide["slide_number"] = i
+            slide.setdefault("title", f"Slide {i}")
+            slide.setdefault("content_text", "")
+            slide.setdefault("needs_image", False)
+            slide.setdefault("image_keyword", "")
+            slide.setdefault("needs_animation", False)
+            slide.setdefault("animation_description", "")
+            try:
+                slide["duration"] = float(slide.get("duration") or 6.0)
+            except (TypeError, ValueError):
+                slide["duration"] = 6.0
+
+            # A slide is either animated or illustrated, never both. The
+            # animation wins, because it was the more deliberate request.
+            if slide["needs_animation"] and slide["needs_image"]:
+                slide["needs_image"] = False
+                slide["image_keyword"] = ""
+            if slide["needs_image"] and not slide["image_keyword"]:
+                slide["needs_image"] = False
+            if slide["needs_animation"] and not slide["animation_description"]:
+                slide["needs_animation"] = False
+
+        return data
+
+    # -- entry point -----------------------------------------------------
+    def generate_content(self, topic: str, num_slides: int = 5) -> Dict:
+        num_slides = max(3, min(int(num_slides), 12))
+
+        if not self.llm.available:
+            data = self._demo_content(topic, num_slides)
+        else:
+            data = self._normalise(
+                self.llm.generate_json(self._build_prompt(topic, num_slides)), topic
+            )
+
+        # Persist using the same naming scheme the API layer expects.
+        safe = topic[:30].replace(" ", "_").replace(":", "").replace("/", "_")
+        with open(Config.SLIDES_DIR / f"{safe}_content.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        slides = data["slides"]
+        print(
+            "Content breakdown: "
+            f"text={sum(1 for s in slides if not s['needs_image'] and not s['needs_animation'])} "
+            f"image={sum(1 for s in slides if s['needs_image'])} "
+            f"animation={sum(1 for s in slides if s['needs_animation'])}"
+        )
+        return data

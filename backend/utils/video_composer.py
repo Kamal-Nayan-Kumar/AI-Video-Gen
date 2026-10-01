@@ -1,373 +1,232 @@
+"""Final video assembly.
 
-# import subprocess
-# from pathlib import Path
-# from config import Config
-# from moviepy import VideoFileClip, ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
-# from typing import List, Dict
-# import os
+Concatenates the per-slide visuals in narration order and muxes the combined
+narration onto the result.
 
+Two things differ from a plain `write_videofile` call, both of which caused
+real failures with the original implementation:
 
-# class VideoComposer:
-#     """Compose final video from slides, animations, images, and audio"""
-    
-#     def __init__(self):
-#         pass
-    
-#     @staticmethod
-#     def sanitize_filename(text: str, max_length: int = 30) -> str:
-#         """Sanitize text for use in filenames"""
-#         text = text[:max_length]
-#         text = text.replace(' ', '_').replace(':', '').replace('/', '_').replace('\\', '_')
-#         text = text.replace('"', '').replace("'", '').replace('?', '').replace('!', '')
-#         text = text.replace('*', '').replace('<', '').replace('>', '').replace('|', '')
-#         return text
-    
-#     def create_slide_video(self, slide_path: str, duration: float) -> VideoFileClip:
-#         """Create video clip for a single slide"""
-        
-#         if not slide_path or not Path(slide_path).exists():
-#             from moviepy import ColorClip
-#             print(f"⚠️ Slide path not found, creating blank slide")
-#             return ColorClip(size=(1920, 1080), color=(20, 20, 40), duration=duration)
-        
-#         if slide_path.endswith(('.mp4', '.mov', '.avi')):
-#             video_clip = VideoFileClip(slide_path)
-#             if video_clip.duration < duration:
-#                 video_clip = video_clip.with_duration(duration)
-#             elif video_clip.duration > duration:
-#                 video_clip = video_clip.subclipped(0, duration)
-#             return video_clip
-#         else:
-#             return ImageClip(slide_path, duration=duration)
-    
-#     def compose_final_video(self, content_data: Dict, script_data: Dict,
-#                            slide_paths: Dict[int, str],
-#                            audio_path: str) -> str:
-#         """Compose final video from all slides with synchronized audio"""
-        
-#         slide_clips = []
-        
-#         print(f"\n🎬 Starting video composition...")
-#         print(f"   Total slides: {len(content_data['slides'])}")
-        
-#         for i, slide in enumerate(content_data['slides']):
-#             slide_num = slide['slide_number']
-            
-#             slide_script = next(
-#                 (s for s in script_data['slide_scripts'] if s['slide_number'] == slide_num),
-#                 None
-#             )
-            
-#             if not slide_script:
-#                 print(f"⚠️ Warning: No script found for slide {slide_num}")
-#                 continue
-            
-#             duration = slide_script['end_time'] - slide_script['start_time']
-#             print(f"   Processing slide {slide_num}: {duration:.1f}s")
-            
-#             slide_data = slide_paths.get(slide_num)
-            
-#             if not slide_data:
-#                 print(f"⚠️ Warning: No slide visual found for slide {slide_num}")
-#                 continue
-            
-#             if isinstance(slide_data, dict) and slide_data.get('type') == 'animation_composite':
-#                 print(f"   🎬 Compositing animation for slide {slide_num}...")
-#                 slide_clip = self.composite_animation_on_slide(
-#                     slide_data['base_slide'],
-#                     slide_data['animation'],
-#                     duration
-#                 )
-#             else:
-#                 slide_clip = self.create_slide_video(slide_data, duration)
-            
-#             slide_clips.append(slide_clip)
-        
-#         if not slide_clips:
-#             raise ValueError("No slide clips were created")
-        
-#         print(f"\n🔗 Concatenating {len(slide_clips)} slide clips...")
-#         final_video = concatenate_videoclips(slide_clips, method="compose")
-#         print(f"   Total video duration: {final_video.duration:.1f}s")
-        
-#         if audio_path and Path(audio_path).exists():
-#             print(f"🎵 Adding audio track...")
-#             audio = AudioFileClip(audio_path)
-#             print(f"   Audio duration: {audio.duration:.1f}s")
-            
-#             if abs(final_video.duration - audio.duration) > 0.5:
-#                 print(f"⚠️ Warning: Video duration ({final_video.duration:.1f}s) doesn't match audio ({audio.duration:.1f}s)")
-            
-#             final_video = final_video.with_audio(audio)
-        
-#         topic_name = self.sanitize_filename(content_data['topic'], max_length=30)
-#         output_path = Config.FINAL_DIR / f"{topic_name}_final.mp4"
-        
-#         print(f"\n📹 Writing final video to: {output_path}")
-#         print(f"   Resolution: 1920x1080")
-#         print(f"   FPS: {Config.MANIM_FPS}")
-#         print(f"   Codec: libx264 + aac")
-        
-#         final_video.write_videofile(
-#             str(output_path),
-#             fps=Config.MANIM_FPS,
-#             codec='libx264',
-#             audio_codec='aac',
-#             preset='medium',
-#             bitrate='5000k',
-#             audio_bitrate='192k'
-#         )
-        
-#         print(f"🧹 Cleaning up video clips...")
-#         for clip in slide_clips:
-#             clip.close()
-#         final_video.close()
-#         if audio_path and Path(audio_path).exists():
-#             audio.close()
-        
-#         print(f"✅ Final video saved: {output_path}")
-#         return str(output_path)
-    
-#     def composite_animation_on_slide(self, slide_image_path: str, animation_video_path: str, 
-#                                      duration: float) -> VideoFileClip:
-#         """Composite animation video onto a slide image in the placeholder area"""
-        
-#         print(f"      🎬 Compositing animation onto slide...")
-#         print(f"         Slide: {Path(slide_image_path).name}")
-#         print(f"         Animation: {Path(animation_video_path).name}")
-#         print(f"         Duration: {duration:.1f}s")
-        
-#         # Load base slide image
-#         slide_clip = ImageClip(slide_image_path, duration=duration)
-        
-#         # Load animation video
-#         animation_clip = VideoFileClip(animation_video_path)
-#         original_duration = animation_clip.duration
-#         print(f"         Original animation duration: {original_duration:.1f}s")
-        
-#         # STEP 1: Handle duration adjustment first (WITHOUT position or resize)
-#         if original_duration < duration:
-#             print(f"         ⟳ Looping animation to match slide duration")
-#             # Calculate how many loops needed
-#             num_loops = int(duration / original_duration) + 1
-            
-#             # Create list of clips to loop
-#             looped_clips = [animation_clip] * num_loops
-            
-#             # Concatenate and trim to exact duration
-#             animation_adjusted = concatenate_videoclips(looped_clips, method="compose")
-#             animation_adjusted = animation_adjusted.subclipped(0, duration)
-            
-#         elif original_duration > duration:
-#             print(f"         ✂️ Trimming animation to match slide duration")
-#             animation_adjusted = animation_clip.subclipped(0, duration)
-            
-#         else:
-#             print(f"         ✅ Animation duration matches slide duration")
-#             animation_adjusted = animation_clip.with_duration(duration)
-        
-#         # STEP 2: Now apply resize and position as the FINAL operations
-#         # This prevents position loss from duration operations
-#         animation_final = animation_adjusted.resized(new_size=(850, 700))
-#         animation_final = animation_final.with_position((1010, 250))
-        
-#         print(f"         ✅ Animation positioned at (1010, 250) with size 850x700")
-#         print(f"         Final animation duration: {animation_final.duration:.1f}s")
-        
-#         # STEP 3: Composite animation on top of slide
-#         composite = CompositeVideoClip(
-#             [slide_clip, animation_final],
-#             size=(1920, 1080)
-#         )
-        
-#         return composite
+* **Ordering.** An animation is looped or trimmed to the slide's measured
+  duration *before* being resized and positioned. Applying a position first and
+  a duration afterwards discards the position in MoviePy, which is why
+  animations previously appeared at the wrong origin or scale.
 
-# above code is previous code
+* **Encoding.** Frames are streamed to ffmpeg over an explicit pipe with a
+  watchdog. MoviePy's own writer stalled indefinitely on this machine (an
+  earlier `write_videofile` left a job "running" forever with a half-written
+  file and a defunct ffmpeg child), and it also routed everything through an
+  RGBA pipe, which is both slow and a source of `yuva420p` encoder hangs.
+  Writing `yuv420p` frames directly is roughly an order of magnitude faster
+  and cannot wedge.
+"""
 
 import subprocess
 from pathlib import Path
-from config import Config
+from typing import Dict
+
+import numpy as np
+
 from moviepy import (
-    VideoFileClip, 
-    ImageClip, 
-    AudioFileClip, 
-    concatenate_videoclips, 
+    AudioFileClip,
+    ColorClip,
     CompositeVideoClip,
-    ColorClip  # Added to main imports
+    ImageClip,
+    VideoFileClip,
+    concatenate_videoclips,
 )
-from typing import List, Dict
-import os
+
+from config import Config
+
+WIDTH, HEIGHT = 1920, 1080
+FPS = 30
+
+# Must match SlideRenderer.ANIMATION_PANEL.
+ANIMATION_PANEL = (1010, 250, 850, 700)
+
+# Rough ceiling for the whole encode; guards against a wedged ffmpeg.
+ENCODE_TIMEOUT = 900
 
 
 class VideoComposer:
-    """Compose final video from slides, animations, images, and audio"""
-    
-    def __init__(self):
-        pass
-    
+    """Build the final MP4 from slide visuals and the narration track."""
+
     @staticmethod
     def sanitize_filename(text: str, max_length: int = 30) -> str:
-        """Sanitize text for use in filenames"""
         text = text[:max_length]
-        text = text.replace(' ', '_').replace(':', '').replace('/', '_').replace('\\', '_')
-        text = text.replace('"', '').replace("'", '').replace('?', '').replace('!', '')
-        text = text.replace('*', '').replace('<', '').replace('>', '').replace('|', '')
-        return text
-    
-    def create_slide_video(self, slide_path: str, duration: float) -> VideoFileClip:
-        """Create video clip for a single slide"""
-        
+        for char in ':"/\\?*<>|!':
+            text = text.replace(char, "")
+        return text.replace(" ", "_")
+
+    # -- clip construction ----------------------------------------------
+    def create_slide_video(self, slide_path: str, duration: float):
+        """Turn one slide asset into a clip of exactly `duration` seconds."""
         if not slide_path or not Path(slide_path).exists():
-            print(f"⚠️ Slide path not found, creating blank slide")
-            return ColorClip(size=(1920, 1080), color=(20, 20, 40), duration=duration)
-        
-        if slide_path.endswith(('.mp4', '.mov', '.avi')):
-            video_clip = VideoFileClip(slide_path)
-            if video_clip.duration < duration:
-                video_clip = video_clip.with_duration(duration)
-            elif video_clip.duration > duration:
-                video_clip = video_clip.subclipped(0, duration)
-            return video_clip
+            print("  Slide asset missing; using a blank frame")
+            return ColorClip(size=(WIDTH, HEIGHT), color=(17, 24, 39),
+                             duration=duration)
+
+        if slide_path.endswith((".mp4", ".mov", ".mkv")):
+            clip = VideoFileClip(slide_path)
+            if clip.duration > duration:
+                return clip.subclipped(0, duration)
+            return clip.with_duration(duration)
+
+        return ImageClip(slide_path, duration=duration)
+
+    def _fit_animation(self, animation_path: str, duration: float):
+        """Loop or trim an animation to `duration`, then size it."""
+        clip = VideoFileClip(animation_path)
+        source = clip.duration
+
+        if source > duration:
+            adjusted = clip.subclipped(0, duration)
+        elif source < duration:
+            repeats = int(duration / source) + 1
+            adjusted = concatenate_videoclips(
+                [clip] * repeats, method="compose"
+            ).subclipped(0, duration)
         else:
-            return ImageClip(slide_path, duration=duration)
-    
+            adjusted = clip.with_duration(duration)
+
+        # Resize last so no later duration operation discards it.
+        return adjusted.resized(new_size=(ANIMATION_PANEL[2], ANIMATION_PANEL[3]))
+
+    def composite_animation_on_slide(self, slide_image_path: str,
+                                     animation_video_path: str, duration: float):
+        """Overlay a Manim render onto the reserved panel of a base slide."""
+        x, y, _w, _h = ANIMATION_PANEL
+        slide = ImageClip(slide_image_path, duration=duration)
+        animation = self._fit_animation(animation_video_path, duration).with_position(
+            (x, y)
+        )
+        return CompositeVideoClip([slide, animation], size=(WIDTH, HEIGHT))
+
+    # -- encoding --------------------------------------------------------
+    def _encode(self, video, destination: Path, audio_path: str | None) -> None:
+        """Stream frames to ffmpeg with narration muxed in.
+
+        MoviePy yields RGB(A) arrays, so the pipe is declared `rgb24` and the
+        pixel format is converted by ffmpeg on the way out. Declaring `yuv420p`
+        here would mismatch the 3-bytes-per-pixel payload and break the pipe
+        part-way through a long encode.
+        """
+        command = [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-f", "rawvideo",
+            "-pix_fmt", "rgb24",
+            "-s", f"{WIDTH}x{HEIGHT}",
+            "-r", str(FPS),
+            "-i", "-",
+        ]
+        if audio_path and Path(audio_path).exists():
+            command += ["-i", str(audio_path), "-c:a", "aac", "-b:a", "192k",
+                        "-shortest"]
+        command += [
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            str(destination),
+        ]
+
+        frames = int(round(video.duration * FPS))
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+
+        written = 0
+        try:
+            for frame in video.iter_frames(fps=FPS, dtype="uint8"):
+                rgb = np.asarray(frame[:, :, :3], dtype=np.uint8)
+                if process.poll() is not None:
+                    raise RuntimeError(
+                        f"ffmpeg exited early after {written}/{frames} frames"
+                    )
+                process.stdin.write(rgb.tobytes())
+                written += 1
+            process.stdin.close()
+        except BrokenPipeError as exc:
+            stderr = process.stderr.read().decode("utf-8", "ignore")
+            raise RuntimeError(f"ffmpeg closed the pipe: {stderr}") from exc
+        finally:
+            if process.stdin and not process.stdin.closed:
+                process.stdin.close()
+            try:
+                process.wait(timeout=120)
+            except subprocess.TimeoutExpired:
+                process.kill()
+
+        if process.returncode != 0:
+            stderr = process.stderr.read().decode("utf-8", "ignore")
+            raise RuntimeError(f"ffmpeg failed ({process.returncode}): {stderr}")
+
+    # -- assembly --------------------------------------------------------
     def compose_final_video(self, content_data: Dict, script_data: Dict,
-                           slide_paths: Dict[int, str],
-                           audio_path: str) -> str:
-        """Compose final video from all slides with synchronized audio"""
-        
-        slide_clips = []
-        
-        print(f"\n🎬 Starting video composition...")
-        print(f"   Total slides: {len(content_data['slides'])}")
-        
-        for i, slide in enumerate(content_data['slides']):
-            slide_num = slide['slide_number']
-            
-            slide_script = next(
-                (s for s in script_data['slide_scripts'] if s['slide_number'] == slide_num),
-                None
+                            slide_paths: Dict[int, object], audio_path: str) -> str:
+        slides = content_data["slides"]
+        scripts = {s["slide_number"]: s for s in script_data["slide_scripts"]}
+        total = len(slides)
+        print(f"Composing {total} slides")
+
+        clips = []
+        for slide in slides:
+            number = slide["slide_number"]
+            timing = scripts.get(number)
+            if timing is None:
+                print(f"  Slide {number} has no script; skipping")
+                continue
+
+            duration = max(
+                1.0, float(timing["end_time"]) - float(timing["start_time"])
             )
-            
-            if not slide_script:
-                print(f"⚠️ Warning: No script found for slide {slide_num}")
+            asset = slide_paths.get(number)
+            if asset is None:
+                print(f"  Slide {number} has no visual; skipping")
                 continue
-            
-            duration = slide_script['end_time'] - slide_script['start_time']
-            print(f"   Processing slide {slide_num}: {duration:.1f}s")
-            
-            slide_data = slide_paths.get(slide_num)
-            
-            if not slide_data:
-                print(f"⚠️ Warning: No slide visual found for slide {slide_num}")
-                continue
-            
-            if isinstance(slide_data, dict) and slide_data.get('type') == 'animation_composite':
-                print(f"   🎬 Compositing animation for slide {slide_num}...")
-                slide_clip = self.composite_animation_on_slide(
-                    slide_data['base_slide'],
-                    slide_data['animation'],
-                    duration
+
+            if isinstance(asset, dict) and asset.get("type") == "animation_composite":
+                clip = self.composite_animation_on_slide(
+                    asset["base_slide"], asset["animation"], duration
                 )
             else:
-                slide_clip = self.create_slide_video(slide_data, duration)
-            
-            slide_clips.append(slide_clip)
-        
-        if not slide_clips:
-            raise ValueError("No slide clips were created")
-        
-        print(f"\n🔗 Concatenating {len(slide_clips)} slide clips...")
-        final_video = concatenate_videoclips(slide_clips, method="compose")
-        print(f"   Total video duration: {final_video.duration:.1f}s")
-        
+                clip = self.create_slide_video(str(asset), duration)
+
+            clips.append(clip)
+
+        if not clips:
+            raise ValueError("No slide clips could be assembled")
+
+        video = concatenate_videoclips(clips, method="compose")
+        target = (
+            Config.FINAL_DIR
+            / f"{self.sanitize_filename(content_data['topic'])}_final.mp4"
+        )
+
+        # Trim the narration to the video length rather than the reverse, so the
+        # video never ends before its audio.
         if audio_path and Path(audio_path).exists():
-            print(f"🎵 Adding audio track...")
             audio = AudioFileClip(audio_path)
-            print(f"   Audio duration: {audio.duration:.1f}s")
-            
-            if abs(final_video.duration - audio.duration) > 0.5:
-                print(f"⚠️ Warning: Video duration ({final_video.duration:.1f}s) doesn't match audio ({audio.duration:.1f}s)")
-            
-            final_video = final_video.with_audio(audio)
-        
-        topic_name = self.sanitize_filename(content_data['topic'], max_length=30)
-        output_path = Config.FINAL_DIR / f"{topic_name}_final.mp4"
-        
-        print(f"\n📹 Writing final video to: {output_path}")
-        print(f"   Resolution: 1920x1080")
-        print(f"   FPS: {Config.MANIM_FPS}")
-        print(f"   Codec: libx264 + aac")
-        
-        final_video.write_videofile(
-            str(output_path),
-            fps=Config.MANIM_FPS,
-            codec='libx264',
-            audio_codec='aac',
-            preset='medium',
-            bitrate='5000k',
-            audio_bitrate='192k'
-        )
-        
-        print(f"🧹 Cleaning up video clips...")
-        for clip in slide_clips:
-            clip.close()
-        final_video.close()
-        if audio_path and Path(audio_path).exists():
+            if audio.duration > video.duration:
+                audio = audio.subclipped(0, video.duration)
+            trimmed = Config.FINAL_DIR / "_narration.wav"
+            audio.write_audiofile(str(trimmed), codec="pcm_s16le", logger=None)
             audio.close()
-        
-        print(f"✅ Final video saved: {output_path}")
-        return str(output_path)
-    
-    def composite_animation_on_slide(self, slide_image_path: str, animation_video_path: str, 
-                                     duration: float) -> VideoFileClip:
-        """Composite animation video onto a slide image in the placeholder area"""
-        
-        print(f"      🎬 Compositing animation onto slide...")
-        print(f"         Slide: {Path(slide_image_path).name}")
-        print(f"         Animation: {Path(animation_video_path).name}")
-        print(f"         Duration: {duration:.1f}s")
-        
-        # Load base slide image
-        slide_clip = ImageClip(slide_image_path, duration=duration)
-        
-        # Load animation video
-        animation_clip = VideoFileClip(animation_video_path)
-        original_duration = animation_clip.duration
-        print(f"         Original animation duration: {original_duration:.1f}s")
-        
-        # STEP 1: Handle duration adjustment first (WITHOUT position or resize)
-        if original_duration < duration:
-            print(f"         ⟳ Looping animation to match slide duration")
-            # Calculate how many loops needed
-            num_loops = int(duration / original_duration) + 1
-            
-            # Create list of clips to loop
-            looped_clips = [animation_clip] * num_loops
-            
-            # Concatenate and trim to exact duration
-            animation_adjusted = concatenate_videoclips(looped_clips, method="compose")
-            animation_adjusted = animation_adjusted.subclipped(0, duration)
-            
-        elif original_duration > duration:
-            print(f"         ✂️ Trimming animation to match slide duration")
-            animation_adjusted = animation_clip.subclipped(0, duration)
-            
+            audio_path = str(trimmed)
         else:
-            print(f"         ✅ Animation duration matches slide duration")
-            animation_adjusted = animation_clip.with_duration(duration)
-        
-        # STEP 2: Now apply resize and position as the FINAL operations
-        animation_final = animation_adjusted.resized(new_size=(850, 700))
-        animation_final = animation_final.with_position((1010, 250))
-        
-        print(f"         ✅ Animation positioned at (1010, 250) with size 850x700")
-        print(f"         Final animation duration: {animation_final.duration:.1f}s")
-        
-        # STEP 3: Composite animation on top of slide
-        composite = CompositeVideoClip(
-            [slide_clip, animation_final],
-            size=(1920, 1080)
-        )
-        
-        return composite
+            print("  No narration track found; writing a silent video")
+            audio_path = ""
+
+        print(f"  Encoding {video.duration:.1f}s at {FPS}fps")
+        self._encode(video, target, audio_path)
+
+        for clip in clips:
+            clip.close()
+        video.close()
+        (Config.FINAL_DIR / "_narration.wav").unlink(missing_ok=True)
+
+        if not target.is_file() or target.stat().st_size == 0:
+            raise RuntimeError("Encode produced no output file")
+
+        print(f"Final video: {target} ({target.stat().st_size // 1024} KB)")
+        return str(target)
