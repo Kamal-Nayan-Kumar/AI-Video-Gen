@@ -183,12 +183,21 @@ Return JSON:
     def generate_content(self, topic: str, num_slides: int = 5) -> Dict:
         num_slides = max(3, min(int(num_slides), 12))
 
+        # Fall back to local content when no provider is configured, and also
+        # when every provider fails at runtime. A rate-limited or empty
+        # response from the LLM chain must not sink the whole video: the rest
+        # of the pipeline runs fine on a deterministic outline.
         if not self.llm.available:
             data = self._demo_content(topic, num_slides)
         else:
-            data = self._normalise(
-                self.llm.generate_json(self._build_prompt(topic, num_slides)), topic
-            )
+            try:
+                data = self._normalise(
+                    self.llm.generate_json(self._build_prompt(topic, num_slides)),
+                    topic,
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"  LLM outline failed ({exc}); using local content")
+                data = self._demo_content(topic, num_slides)
 
         # Persist using the same naming scheme the API layer expects.
         safe = topic[:30].replace(" ", "_").replace(":", "").replace("/", "_")

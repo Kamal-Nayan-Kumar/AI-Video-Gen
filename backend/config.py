@@ -86,6 +86,7 @@ class Config:
     # --- API keys (optional; absence enables demo mode) -------------------
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
     SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "").strip()
     UNSPLASH_ACCESS_KEY = os.getenv("UNSPLASH_ACCESS_KEY", "").strip()
 
@@ -113,6 +114,11 @@ class Config:
 
     # --- Models ----------------------------------------------------------
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    # OpenRouter universal router. `openrouter/auto` routes by prompt and was
+    # tested 3/3 on this pipeline; `openrouter/free` is free but drops roughly
+    # one request in three with an empty body, so it is not the default.
+    OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/auto")
 
     # --- Manim -----------------------------------------------------------
     MANIM_QUALITY = os.getenv("MANIM_QUALITY", "m")  # l=low, m=medium, h=high
@@ -172,15 +178,33 @@ class Config:
     elif _demo_flag in {"0", "false", "no"}:
         MODE = "live"
     else:
-        MODE = "live" if (GROQ_API_KEY or GEMINI_API_KEY) else "demo"
+        MODE = "live" if (GROQ_API_KEY or OPENROUTER_API_KEY or GEMINI_API_KEY) else "demo"
 
     @classmethod
     def capability(cls) -> dict:
         """Which stages run against a real provider."""
+        if cls.GROQ_API_KEY:
+            provider = "groq"
+        elif cls.OPENROUTER_API_KEY:
+            provider = "openrouter"
+        elif cls.GEMINI_API_KEY:
+            provider = "gemini"
+        else:
+            provider = "local"
+
         return {
             "mode": cls.MODE,
-            "content": bool(cls.GROQ_API_KEY or cls.GEMINI_API_KEY),
-            "provider": "groq" if cls.GROQ_API_KEY else ("gemini" if cls.GEMINI_API_KEY else "local"),
+            "content": bool(cls.GROQ_API_KEY or cls.OPENROUTER_API_KEY or cls.GEMINI_API_KEY),
+            "llm_providers": [
+                name
+                for name, key in (
+                    ("groq", cls.GROQ_API_KEY),
+                    ("openrouter", cls.OPENROUTER_API_KEY),
+                    ("gemini", cls.GEMINI_API_KEY),
+                )
+                if key
+            ],
+            "provider": provider,
             "voice": bool(cls.SARVAM_API_KEY),
             "images": bool(cls.UNSPLASH_ACCESS_KEY),
         }

@@ -21,6 +21,7 @@ real failures with the original implementation:
 """
 
 import subprocess
+import time
 from pathlib import Path
 from typing import Dict
 
@@ -102,7 +103,8 @@ class VideoComposer:
         return CompositeVideoClip([slide, animation], size=(WIDTH, HEIGHT))
 
     # -- encoding --------------------------------------------------------
-    def _encode(self, video, destination: Path, audio_path: str | None) -> None:
+    def _encode(self, video, destination: Path, audio_path: str | None,
+                on_progress=None) -> None:
         """Stream frames to ffmpeg with narration muxed in.
 
         MoviePy yields RGB(A) arrays, so the pipe is declared `rgb24` and the
@@ -136,6 +138,7 @@ class VideoComposer:
         )
 
         written = 0
+        last_report = 0.0
         try:
             for frame in video.iter_frames(fps=FPS, dtype="uint8"):
                 rgb = np.asarray(frame[:, :, :3], dtype=np.uint8)
@@ -145,6 +148,15 @@ class VideoComposer:
                     )
                 process.stdin.write(rgb.tobytes())
                 written += 1
+
+                # Encoding a 1080p deck takes a couple of minutes. Without this
+                # the caller hears nothing for the whole encode, so report frame
+                # counts to whatever is listening.
+                if on_progress is not None:
+                    now = time.monotonic()
+                    if now - last_report >= 1.0:
+                        last_report = now
+                        on_progress(written, frames)
             process.stdin.close()
         except BrokenPipeError as exc:
             stderr = process.stderr.read().decode("utf-8", "ignore")
@@ -163,7 +175,8 @@ class VideoComposer:
 
     # -- assembly --------------------------------------------------------
     def compose_final_video(self, content_data: Dict, script_data: Dict,
-                            slide_paths: Dict[int, object], audio_path: str) -> str:
+                            slide_paths: Dict[int, object], audio_path: str,
+                            on_progress=None) -> str:
         slides = content_data["slides"]
         scripts = {s["slide_number"]: s for s in script_data["slide_scripts"]}
         total = len(slides)
@@ -218,7 +231,7 @@ class VideoComposer:
             audio_path = ""
 
         print(f"  Encoding {video.duration:.1f}s at {FPS}fps")
-        self._encode(video, target, audio_path)
+        self._encode(video, target, audio_path, on_progress=on_progress)
 
         for clip in clips:
             clip.close()

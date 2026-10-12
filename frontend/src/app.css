@@ -14,7 +14,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--s-4);
-  height: 52px;
+  height: 54px;
   padding: 0 var(--s-5);
   border-bottom: 1px solid var(--line-1);
   background: var(--bg-1);
@@ -25,22 +25,27 @@
 
 .brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--s-3);
   min-width: 0;
 }
+
+/* The mark is a film-frame sprocket hole rather than a generic square, so the
+   wordmark carries the subject instead of needing a logo. */
 .brand__mark {
-  width: 9px;
-  height: 9px;
+  width: 12px;
+  height: 12px;
   border-radius: 2px;
-  background: var(--accent);
-  align-self: center;
+  background: var(--fg-1);
   flex: none;
+  box-shadow: inset 0 0 0 3px var(--bg-1);
+  border: 1.5px solid var(--fg-1);
 }
 .brand__name {
   font-size: var(--fs-md);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--fg-1);
 }
 .brand__sub {
   font-size: var(--fs-sm);
@@ -57,9 +62,8 @@
 }
 
 .tag__detail {
-  color: var(--fg-4);
+  color: var(--fg-3);
   font-weight: 400;
-  letter-spacing: 0;
 }
 
 /* Main ------------------------------------------------------------------- */
@@ -70,9 +74,9 @@
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: var(--s-7);
-  max-width: 1180px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--s-7) var(--s-5) var(--s-8);
   align-items: start;
@@ -83,7 +87,7 @@
 }
 .workspace__rail {
   position: sticky;
-  top: 76px;
+  top: 78px;
 }
 
 /* Composer --------------------------------------------------------------- */
@@ -91,20 +95,21 @@
   display: flex;
   flex-direction: column;
   gap: var(--s-5);
-  max-width: 620px;
+  max-width: 640px;
 }
 
 .composer__title {
   margin: 0 0 var(--s-3);
   font-size: var(--fs-2xl);
-  font-weight: 600;
-  line-height: 1.12;
-  letter-spacing: -0.025em;
+  font-weight: 660;
+  line-height: 1.14;
+  letter-spacing: -0.03em;
+  color: var(--fg-1);
 }
 
 .composer__lede {
   margin: 0;
-  max-width: 52ch;
+  max-width: 54ch;
   color: var(--fg-2);
   font-size: var(--fs-md);
   line-height: 1.6;
@@ -127,8 +132,8 @@
   padding: 4px var(--s-3);
   border: 1px solid var(--line-2);
   border-radius: 100px;
-  background: transparent;
-  color: var(--fg-3);
+  background: var(--bg-1);
+  color: var(--fg-2);
   font: inherit;
   font-size: var(--fs-sm);
   cursor: pointer;
@@ -137,8 +142,8 @@
 }
 .chip:hover:not(:disabled) {
   color: var(--fg-1);
-  border-color: var(--line-3);
-  background: var(--bg-2);
+  border-color: var(--action);
+  background: var(--action-wash);
 }
 .chip:disabled {
   opacity: 0.5;
@@ -153,7 +158,21 @@
 
 .composer__hint {
   margin: calc(var(--s-4) * -1) 0 0;
-  color: var(--warn);
+  color: var(--bad);
+  font-size: var(--fs-sm);
+}
+
+/* Error, shown above the log so it reads as the current state of the run. */
+.composer__error {
+  display: flex;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-3);
+  border: 1px solid #f3c4cd;
+  border-left: 3px solid var(--bad);
+  border-radius: var(--r-sm);
+  background: var(--bad-wash);
+  color: #8c0f31;
   font-size: var(--fs-sm);
 }
 
@@ -166,6 +185,7 @@
   background: var(--bg-1);
   border: 1px solid var(--line-1);
   border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
 }
 
 .rail__head {
@@ -177,17 +197,17 @@
 
 .rail__title {
   margin: 0;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--fg-3);
+  font-size: var(--fs-md);
+  font-weight: 640;
+  letter-spacing: -0.01em;
+  color: var(--fg-1);
 }
 
 .rail__status {
   margin: 0;
   color: var(--fg-1);
   font-size: var(--fs-sm);
+  font-weight: 500;
   min-height: 2.6em;
 }
 
@@ -198,6 +218,17 @@
   line-height: 1.5;
 }
 
+.rail__error {
+  margin: 0;
+  padding: var(--s-3);
+  border-radius: var(--r-sm);
+  background: var(--bad-wash);
+  border: 1px solid #f3c4cd;
+  color: #8c0f31;
+  font-size: var(--fs-sm);
+}
+
+/* Pipeline stages. Numbered, because the pipeline genuinely is a sequence. */
 .stages {
   list-style: none;
   margin: 0;
@@ -216,31 +247,69 @@
 .stages__index {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
   color: var(--fg-3);
   font-size: var(--fs-xs);
   font-weight: 600;
   flex: none;
 }
+.stages__item--done .stages__index {
+  background: var(--good);
+  border-color: var(--good);
+  color: #fff;
+}
+.stages__item--active .stages__index {
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  color: #fff;
+}
+.stages__item--done {
+  color: var(--fg-1);
+}
 
 /* Meter ------------------------------------------------------------------ */
 .meter {
-  height: 3px;
-  border-radius: 2px;
+  height: 6px;
+  border-radius: 3px;
   background: var(--bg-3);
   overflow: hidden;
 }
 .meter__fill {
   height: 100%;
-  background: var(--accent);
-  border-radius: 2px;
+  background: var(--action);
+  border-radius: 3px;
   transition: width 0.4s var(--ease);
 }
 .meter__fill--bad {
   background: var(--bad);
+}
+.meter__fill--done {
+  background: var(--good);
+}
+
+/* Elapsed clock next to the percentage, since generation is slow. */
+.meter__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.meter__pct {
+  font-family: var(--mono);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--fg-1);
+}
+.meter__elapsed {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--fg-3);
 }
 
 /* Log -------------------------------------------------------------------- */
@@ -251,7 +320,7 @@
   max-height: 260px;
   overflow-y: auto;
   padding: var(--s-3);
-  background: var(--bg-0);
+  background: var(--bg-2);
   border: 1px solid var(--line-1);
   border-radius: var(--r-sm);
 }
@@ -260,7 +329,7 @@
   gap: var(--s-3);
   font-family: var(--mono);
   font-size: var(--fs-xs);
-  line-height: 1.7;
+  line-height: 1.75;
 }
 .log__time {
   color: var(--fg-4);
@@ -272,17 +341,17 @@
   overflow-wrap: anywhere;
 }
 .log__row--live .log__msg {
-  color: var(--accent);
+  color: var(--accent-ink);
   animation: pulse 1.6s var(--ease) infinite;
 }
 
 /* Player ----------------------------------------------------------------- */
 .player {
-  max-width: 1180px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--s-6) var(--s-5) var(--s-8);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: var(--s-6);
   align-items: start;
 }
@@ -297,7 +366,8 @@
 .player__video {
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #000;
+  /* Black is correct here: video needs a letterbox, not a themed surface. */
+  background: #0b0d10;
   border: 1px solid var(--line-2);
   border-radius: var(--r-lg);
   display: block;
@@ -307,8 +377,8 @@
   display: grid;
   place-items: center;
   aspect-ratio: 16 / 9;
-  background: var(--bg-1);
-  border: 1px solid var(--line-2);
+  background: var(--bg-2);
+  border: 1px dashed var(--line-2);
   border-radius: var(--r-lg);
   color: var(--fg-3);
 }
@@ -324,8 +394,9 @@
 .player__title {
   margin: 0;
   font-size: var(--fs-xl);
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  color: var(--fg-1);
 }
 
 .player__sub {
@@ -346,11 +417,12 @@
   flex-direction: column;
   gap: var(--s-3);
   position: sticky;
-  top: 76px;
+  top: 78px;
   padding: var(--s-4);
   background: var(--bg-1);
   border: 1px solid var(--line-1);
   border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
 }
 
 .chapters {
@@ -369,7 +441,7 @@
   align-items: baseline;
   gap: var(--s-3);
   width: 100%;
-  padding: var(--s-2) var(--s-2);
+  padding: var(--s-2);
   border: none;
   border-radius: var(--r-sm);
   background: transparent;
@@ -385,17 +457,19 @@
   color: var(--fg-1);
 }
 .chapter[aria-current="true"] {
-  background: var(--accent-wash);
+  background: var(--action-wash);
   color: var(--fg-1);
+  box-shadow: inset 2px 0 0 var(--action);
 }
 .chapter__time {
   color: var(--fg-4);
   font-size: var(--fs-xs);
   flex: none;
-  width: 34px;
+  width: 38px;
 }
 .chapter[aria-current="true"] .chapter__time {
-  color: var(--accent);
+  color: var(--action);
+  font-weight: 600;
 }
 .chapter__title {
   min-width: 0;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Composer from "./components/Composer";
 import ProgressPanel from "./components/ProgressPanel";
@@ -10,38 +10,38 @@ import { createGeneration, getJob } from "./utils/api";
 
 export default function App() {
   const health = useCapabilities();
-  const progress = useJobProgress();
 
   const [jobId, setJobId] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [hasRun, setHasRun] = useState(false);
+
+  // The hook has to be given the job id. Passing nothing leaves it undefined,
+  // the EventSource is never opened and no progress ever arrives.
+  const progress = useJobProgress(jobId);
 
   const running = submitting || (progress.status === "running" && !result);
 
-  const submit = useCallback(
-    async (settings) => {
-      setError(null);
-      setResult(null);
-      setSubmitting(true);
-      setJobId(null);
+  const submit = useCallback(async (settings) => {
+    setError(null);
+    setResult(null);
+    setHasRun(true);
+    setSubmitting(true);
+    setJobId(null);
 
-      try {
-        const { job_id } = await createGeneration(settings);
-        setJobId(job_id);
-      } catch (cause) {
-        setError(cause.message);
-        setSubmitting(false);
-        return;
-      }
-
-      // The SSE stream reports completion; fetch the payload once it lands.
+    try {
+      const { job_id } = await createGeneration(settings);
+      setJobId(job_id);
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
       setSubmitting(false);
-    },
-    []
-  );
+    }
+  }, []);
 
   // Pull the finished job as soon as the stream reports it is done.
+  const fetchingRef = useRef(null);
   useEffect(() => {
     if (!jobId || result || error) return;
     if (progress.status !== "completed" && progress.status !== "error") return;
@@ -52,6 +52,10 @@ export default function App() {
       return;
     }
 
+    // Guard against React 18 StrictMode double-invoking the effect.
+    if (fetchingRef.current === jobId) return;
+    fetchingRef.current = jobId;
+
     let cancelled = false;
     getJob(jobId)
       .then((data) => {
@@ -59,9 +63,6 @@ export default function App() {
       })
       .catch((cause) => {
         if (!cancelled) setError(cause.message);
-      })
-      .finally(() => {
-        if (!cancelled) setJobId(null);
       });
 
     return () => {
@@ -69,10 +70,44 @@ export default function App() {
     };
   }, [jobId, result, error, progress.status, progress.message]);
 
+  // Safety net. The stream is the intended channel, but a proxy can drop an
+  // idle connection during the two-minute encode. If the stream goes quiet
+  // while still running, poll the job endpoint so the result is never stranded.
+  useEffect(() => {
+    if (!jobId || !hasRun) return;
+    if (progress.status === "completed" || progress.status === "error") return;
+    if (result || error) return;
+
+    const timer = setInterval(() => {
+      // Deliberately quiet: a 409 is the normal "still running" answer, and the
+      // browser logs every failed fetch as a console error. Suppress the noise.
+      fetch(`/api/job/${jobId}`)
+        .then((response) => {
+          if (!response.ok) return null;
+          return response.json();
+        })
+        .then((data) => {
+          if (data) setResult({ ...data, jobId });
+        })
+        .catch(() => {
+          /* network blip; the next tick retries */
+        });
+    }, 10000);
+
+    return () => clearInterval(timer);
+  }, [jobId, hasRun, progress.status, result, error]);
+
+  // Clear the job id only once the payload has landed, so tearing the stream
+  // down early cannot strand the player without a result.
+  useEffect(() => {
+    if (result) setJobId(null);
+  }, [result]);
+
   const reset = useCallback(() => {
     setResult(null);
     setError(null);
     setJobId(null);
+    setHasRun(false);
   }, []);
 
   return (
@@ -108,9 +143,11 @@ export default function App() {
                 progress={progress.progress}
                 status={progress.status}
                 message={progress.message}
+                stage={progress.stage}
+                elapsed={progress.elapsed}
                 connected={progress.connected}
                 error={error}
-                hasRun={Boolean(jobId) || progress.events.length > 0}
+                hasRun={hasRun}
               />
             </div>
           </div>

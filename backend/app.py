@@ -18,6 +18,7 @@ import json
 import os
 import queue
 import threading
+import time
 import traceback
 import uuid
 from datetime import datetime
@@ -54,6 +55,12 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Job registry
 # ---------------------------------------------------------------------------
+# The pipeline's stages, in the order they run. The frontend renders the
+# progress rail from these names, so it knows what is happening rather than
+# inferring a stage from a percentage.
+STAGES = ["outline", "script", "voice", "visuals", "encode"]
+
+
 class Job:
     """One generation run, with a thread-safe event buffer for the UI."""
 
@@ -61,28 +68,66 @@ class Job:
         self.id = job_id
         self.topic = topic
         self.state = "queued"
+        self.stage = STAGES[0]
         self.progress = 0
         self.message = "Queued"
         self.result: dict | None = None
         self.error: str | None = None
         self.done = threading.Event()
+        self.started = time.monotonic()
+        self.finished: float | None = None
         self.events: queue.Queue = queue.Queue()
 
-    def emit(self, state: str, progress: int, message: str) -> None:
+    def emit(
+        self,
+        state: str,
+        progress: int,
+        message: str,
+        stage: str | None = None,
+        coalesce: bool = False,
+    ) -> None:
+        """Publish a progress update.
+
+        `coalesce` marks a high-frequency update that should replace the
+        previous row in the UI log rather than append to it — used for the
+        encode, which ticks several times a second.
+        """
         self.state = state
         self.progress = progress
         self.message = message
+        if stage:
+            self.stage = stage
+        if state in {"completed", "error"}:
+            self.finished = time.monotonic()
         self.events.put(
             {
                 "job_id": self.id,
                 "status": state,
+                "stage": self.stage,
                 "progress": progress,
                 "message": message,
+                "coalesce": coalesce,
+                "elapsed": round(time.monotonic() - self.started, 1),
                 "timestamp": datetime.now().strftime("%H:%M:%S"),
             }
         )
+        if coalesce:
+            # Do not print every tick; the terminal only needs the stage change.
+            return
         stamp = datetime.now().strftime("%H:%M:%S")
-        print(f"[{stamp}] {progress:>3}%  {message}")
+        print(f"[{stamp}] {progress:>3}%  [{self.stage}]  {message}")
+
+    def snapshot(self) -> dict:
+        """Current state as a stream event, for late or reconnecting clients."""
+        return {
+            "job_id": self.id,
+            "status": self.state,
+            "stage": self.stage,
+            "progress": self.progress,
+            "message": self.message,
+            "elapsed": round(time.monotonic() - self.started, 1),
+            "timestamp": datetime.now().strftime("%H:%M:%S"),
+        }
 
 
 jobs: dict[str, Job] = {}
@@ -114,20 +159,30 @@ def run_pipeline(job: Job, request: GenerateRequest) -> None:
     topic = request.topic
     total = max(3, min(int(request.num_slides), 12))
 
+    def report(
+        state: str, progress: int, message: str, coalesce: bool = False
+    ) -> None:
+        """Publish a progress update tagged with the stage that owns it."""
+        job.emit(state, progress, message, stage=_current_stage[0], coalesce=coalesce)
+
+    _current_stage = ["outline"]
+
     try:
-        job.emit("running", 3, "Drafting the slide outline")
+        report("running", 3, "Drafting the slide outline")
 
         content_data = ContentGenerator().generate_content(topic, total)
         slides = content_data["slides"]
         actual_total = len(slides)
 
-        job.emit("running", 15, "Writing the narration script")
+        _current_stage[0] = "script"
+        report("running", 15, "Writing the narration script")
 
         script_data = ScriptGenerator().generate_scripts(
             content_data, request.language, request.tone
         )
 
-        job.emit("running", 24, f"Synthesising narration for {actual_total} slides")
+        _current_stage[0] = "voice"
+        report("running", 24, f"Synthesising narration for {actual_total} slides")
 
         voice = VoiceGenerator()
         audio_paths: dict[int, str] = {}
@@ -135,7 +190,7 @@ def run_pipeline(job: Job, request: GenerateRequest) -> None:
 
         for index, slide_script in enumerate(script_data["slide_scripts"], start=1):
             number = slide_script["slide_number"]
-            job.emit(
+            report(
                 "running",
                 24 + int(18 * index / len(script_data["slide_scripts"])),
                 f"Synthesising narration for slide {index}/{actual_total}",
@@ -169,11 +224,12 @@ def run_pipeline(job: Job, request: GenerateRequest) -> None:
         if not audio_paths:
             raise RuntimeError("Narration could not be generated for any slide")
 
-        job.emit("running", 44, "Joining the narration track")
+        report("running", 44, "Joining the narration track")
         audio_path = voice.combine_slide_audios(audio_paths, topic)
 
         # --- visuals ---------------------------------------------------
-        job.emit("running", 50, "Laying out slides")
+        _current_stage[0] = "visuals"
+        report("running", 50, "Laying out slides")
 
         renderer = SlideRenderer()
         manim_gen = ManimGenerator()
@@ -186,7 +242,7 @@ def run_pipeline(job: Job, request: GenerateRequest) -> None:
         for index, slide in enumerate(slides, start=1):
             number = slide["slide_number"]
             share = 40 / actual_total
-            job.emit(
+            report(
                 "running",
                 50 + int(share * index),
                 f"Laying out slide {index}/{actual_total}",
@@ -250,10 +306,27 @@ def run_pipeline(job: Job, request: GenerateRequest) -> None:
 
         print(f"  Visual breakdown: {counts}")
 
-        job.emit("running", 92, "Encoding the final video")
+        _current_stage[0] = "encode"
+        report("running", 92, "Encoding the final video")
+
+        def encode_progress(written: int, frames: int) -> None:
+            """Stream encode progress so 92% is not the last thing the UI sees."""
+            if frames <= 0:
+                return
+            share = written / frames
+            report(
+                "running",
+                92 + int(7 * share),
+                f"Encoding frame {written}/{frames}",
+                coalesce=True,
+            )
 
         final_path = VideoComposer().compose_final_video(
-            content_data, script_data, visuals, audio_path
+            content_data,
+            script_data,
+            visuals,
+            audio_path,
+            on_progress=encode_progress,
         )
 
         job.result = {
@@ -263,11 +336,11 @@ def run_pipeline(job: Job, request: GenerateRequest) -> None:
             "counts": counts,
             "total_duration": script_data["total_duration"],
         }
-        job.emit("completed", 100, "Ready to play")
+        report("completed", 100, "Ready to play")
 
     except Exception as exc:  # noqa: BLE001
         job.error = str(exc)
-        job.emit("error", job.progress, f"Failed: {exc}")
+        report("error", job.progress, f"Failed: {exc}")
         traceback.print_exc()
     finally:
         job.done.set()
@@ -310,7 +383,17 @@ async def progress(job_id: str, request: Request) -> StreamingResponse:
 
     async def stream():
         loop = asyncio.get_running_loop()
-        yield f": stream open\n\n"
+        yield ": stream open\n\n"
+
+        # Send the current state immediately so a client that attaches late
+        # (or after a reconnect) renders the correct bar immediately instead of
+        # sitting at 0% until the next real event.
+        yield f"data: {json.dumps(job.snapshot())}\n\n"
+
+        # Keep-alives. Some proxies drop an idle connection after 30-60s, and
+        # the encode stage can run for minutes without emitting an event. A
+        # comment frame is ignored by EventSource but holds the socket open.
+        last_beat = time.monotonic()
 
         while True:
             if await request.is_disconnected():
@@ -323,6 +406,7 @@ async def progress(job_id: str, request: Request) -> StreamingResponse:
                 except queue.Empty:
                     break
                 yield f"data: {json.dumps(event)}\n\n"
+                last_beat = time.monotonic()
 
             if job.done.is_set():
                 # Flush the terminal state, then close cleanly.
@@ -332,16 +416,16 @@ async def progress(job_id: str, request: Request) -> StreamingResponse:
                     except queue.Empty:
                         break
                     yield f"data: {json.dumps(event)}\n\n"
-                summary = {
-                    "job_id": job.id,
-                    "status": job.state,
-                    "progress": job.progress,
-                    "message": job.message,
-                    "done": True,
-                    "error": job.error,
-                }
+                summary = job.snapshot()
+                summary["done"] = True
+                summary["error"] = job.error
                 yield f"data: {json.dumps(summary)}\n\n"
                 break
+
+            now = time.monotonic()
+            if now - last_beat >= 10:
+                yield f": keep-alive {int(now)}\n\n"
+                last_beat = now
 
             # Wait on the queue rather than polling it.
             try:

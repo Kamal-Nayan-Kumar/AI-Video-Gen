@@ -24,7 +24,7 @@ const EXAMPLES = [
   "Why the sky is blue",
 ];
 
-export default function Composer({ onSubmit, disabled }) {
+export default function Composer({ onSubmit, disabled, error }) {
   const [topic, setTopic] = useState("");
   const [numSlides, setNumSlides] = useState(5);
   const [language, setLanguage] = useState("english");
@@ -142,7 +142,15 @@ export default function Composer({ onSubmit, disabled }) {
         </div>
       </div>
 
-      {touched && !ready && <p className="composer__hint">Enter at least a couple of characters.</p>}
+      {touched && !ready && (
+        <p className="composer__hint">Enter at least a couple of characters.</p>
+      )}
+
+      {error && (
+        <p className="composer__error" role="alert">
+          {error}
+        </p>
+      )}
 
       <button
         type="submit"

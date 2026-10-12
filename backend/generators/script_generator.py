@@ -157,9 +157,13 @@ Return JSON:
         if not self.llm.available:
             data = self._demo_scripts(content_data, language, tone)
         else:
-            data = self.llm.generate_json(
-                self._build_prompt(content_data, language, tone)
-            )
+            try:
+                data = self.llm.generate_json(
+                    self._build_prompt(content_data, language, tone)
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"  LLM script failed ({exc}); using local narration")
+                data = self._demo_scripts(content_data, language, tone)
 
         # Guarantee one narration per slide, in order.
         expected = [s["slide_number"] for s in content_data["slides"]]

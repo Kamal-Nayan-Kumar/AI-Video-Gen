@@ -20,22 +20,22 @@ export default function ModeBadge({ health }) {
   }
 
   const live = mode === "live";
+  const providers = Array.isArray(capabilities?.llm_providers)
+    ? capabilities.llm_providers
+    : [];
+
+  // Every configured capability, so the badge is honest about what is live.
+  const parts = [
+    ...providers,
+    capabilities?.voice && "TTS",
+    capabilities?.images && "photos",
+  ].filter(Boolean);
 
   return (
     <span className="tag" title="Provider status reported by /health">
       <span className="dot" style={{ color: live ? "var(--good)" : "var(--warn)" }} />
-      {live ? (capabilities?.provider === "groq" ? "groq" : "live") : "demo mode"}
-      {capabilities && (
-        <span className="tag__detail">
-          {[
-            capabilities.content && "AI",
-            capabilities.voice && "TTS",
-            capabilities.images && "photos",
-          ]
-            .filter(Boolean)
-            .join(" · ") || "local fallbacks"}
-        </span>
-      )}
+      {live ? "live" : "demo"}
+      {parts.length > 0 && <span className="tag__detail">{parts.join(" + ")}</span>}
     </span>
   );
 }
