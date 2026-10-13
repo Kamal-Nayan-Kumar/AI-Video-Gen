@@ -141,15 +141,38 @@ class SlideAnimation(Scene):
 """,
         ]
         body = variants[variant % len(variants)].strip("\n")
-        # Text renders via Pango, so the font is passed by family name.
-        body = body.replace("font_size=44", f"font_size=44{font}")
-        return "from manim import *\n\n" + body
+        return "from manim import *\n\n" + self._apply_font(body)
 
     @staticmethod
     def _font_kwarg() -> str:
         """Font family keyword for generated Text calls, or empty."""
         family = Config.FONT_FAMILY
         return f', font="{family}"' if family else ""
+
+    @classmethod
+    def _apply_font(cls, code: str) -> str:
+        """Give every `Text(...)` call the configured font family.
+
+        Manim renders text through Pango, which matches on family name and
+        silently falls back to a serif face when nothing is specified. The
+        earlier version of this only rewrote a literal `font_size=44` inside
+        the local templates, so any model-generated scene kept the serif
+        fallback. This injects the family into any Text call that does not
+        already name one.
+        """
+        kwarg = cls._font_kwarg()
+        if not kwarg:
+            return code
+
+        def add_font(match: re.Match) -> str:
+            args = match.group(1)
+            if "font=" in args:
+                return match.group(0)
+            return f"Text({args}{kwarg})"
+
+        # Text(...) with no nested parentheses, which covers every Text call
+        # the generator produces.
+        return re.sub(r"\bText\(([^()]*)\)", add_font, code)
 
     def generate_animation_code(self, slide_data: Dict, duration: float) -> str:
         title = slide_data.get("title", "Animation")
@@ -174,7 +197,7 @@ class SlideAnimation(Scene):
             if "MathTex" in code or re.search(r"\bTex\(", code):
                 raise ValueError("generated scene requires LaTeX")
 
-            return code
+            return self._apply_font(code)
         except Exception as exc:  # noqa: BLE001
             print(f"  Animation code generation failed ({exc}); using template")
             return self._template_scene(title, duration, int(hashlib_seed(title)))

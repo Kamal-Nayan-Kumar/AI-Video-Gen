@@ -53,8 +53,11 @@ class VideoComposer:
 
     @staticmethod
     def sanitize_filename(text: str, max_length: int = 30) -> str:
+        # Apostrophes are stripped as well: a topic like "Newton's Third Law"
+        # would otherwise produce a filename that needs shell quoting and URL
+        # escaping everywhere it is touched.
         text = text[:max_length]
-        for char in ':"/\\?*<>|!':
+        for char in ':"/\\?*<>|!\'':
             text = text.replace(char, "")
         return text.replace(" ", "_")
 
